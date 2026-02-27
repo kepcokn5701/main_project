@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>과소계량 적출 AI — Under-Metering Anomaly Detection</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] },
+      colors: {
+        bg: '#070b16',
+        surface: '#0d1326',
+        surfaceLight: '#141c36',
+        border: '#1e2a4a',
+        accent: '#ef4444',
+        accentSky: '#0ea5e9',
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { background: #070b16; font-family: 'Noto Sans KR', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0d1326; }
+  ::-webkit-scrollbar-thumb { background: #1e2a4a; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2a3a5a; }
+
+  .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.15); }
+  .glow-sky { box-shadow: 0 0 20px rgba(14, 165, 233, 0.15); }
+
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .pulse-dot { animation: pulse-dot 1.5s ease-in-out infinite; }
+
+  @keyframes scan-line {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100%); }
+  }
+  .scan-anim::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(transparent 40%, rgba(14,165,233,0.08) 50%, transparent 60%);
+    animation: scan-line 2s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .alert-enter { animation: slideIn 0.4s ease-out; }
+
+  @keyframes analyzing {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .analyzing-btn {
+    background: linear-gradient(270deg, #ef4444, #0ea5e9, #ef4444);
+    background-size: 400% 400%;
+    animation: analyzing 2s ease infinite;
+  }
+
+  .chart-bar { transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .chart-bar:hover { filter: brightness(1.3); }
+
+  .region-cell {
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+  .region-cell:hover {
+    transform: scale(1.08);
+    z-index: 10;
+    filter: brightness(1.3);
+  }
+
+  .table-row { transition: background 0.2s; cursor: pointer; }
+  .table-row:hover { background: rgba(14, 165, 233, 0.05) !important; }
+
+  .donut-segment { transition: opacity 0.2s; cursor: pointer; }
+  .donut-segment:hover { opacity: 0.8; }
+
+  .detail-panel {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease, opacity 0.3s ease;
+    opacity: 0;
+  }
+  .detail-panel.open {
+    max-height: 600px;
+    opacity: 1;
+  }
+
+  .sort-icon { transition: transform 0.2s; }
+  .sort-asc .sort-icon { transform: rotate(0deg); }
+  .sort-desc .sort-icon { transform: rotate(180deg); }
+</style>
+</head>
+<body class="min-h-screen text-gray-200">
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- Top Navigation -->
+<nav class="sticky top-0 z-50 bg-bg/90 backdrop-blur-xl border-b border-border">
+  <div class="max-w-[1800px] mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm hidden sm:inline">돌아가기</span>
+      </a>
+      <div class="w-px h-8 bg-border"></div>
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+          <i data-lucide="scan-search" class="w-5 h-5 text-red-400"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-bold text-white leading-tight">과소계량 적출 AI</h1>
+          <p class="text-[11px] text-gray-500 leading-tight">Under-Metering Anomaly Detection System</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20">
+        <span class="w-2 h-2 rounded-full bg-green-400 pulse-dot"></span>
+        <span class="text-xs text-green-400 font-medium">시스템 정상</span>
+      </div>
+      <div class="text-xs text-gray-500" id="currentTime"></div>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-[1800px] mx-auto px-6 py-6 space-y-6">
+
+  <!-- Row 1: Map + KPI -->
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+    <!-- Map Overview -->
+    <div class="xl:col-span-2 bg-surface rounded-2xl border border-border p-6 relative overflow-hidden scan-anim">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-2">
+          <i data-lucide="map" class="w-5 h-5 text-accentSky"></i>
+          <h2 class="text-lg font-bold text-white">지역별 이상 탐지 현황</h2>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-green-500/70"></span>정상</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-yellow-500/70"></span>주의</span>
+          <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-red-500/70"></span>위험</span>
+        </div>
+      </div>
+      <div id="mapGrid" class="grid grid-cols-4 grid-rows-3 gap-2 h-[300px] relative z-10"></div>
+      <div id="regionDetail" class="hidden mt-4 p-4 rounded-xl bg-surfaceLight border border-border relative z-10"></div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 gap-4 content-start">
+      <div class="bg-surface rounded-2xl border border-border p-5 glow-sky">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+            <i data-lucide="gauge" class="w-4 h-4 text-sky-400"></i>
+          </div>
+          <span class="text-xs text-gray-400">전체 계기 수</span>
+        </div>
+        <p class="text-2xl font-black text-white">12,450</p>
+        <p class="text-xs text-gray-500 mt-1">관할 구역 전체</p>
+      </div>
+      <div class="bg-surface rounded-2xl border border-border p-5 glow-red">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+          </div>
+          <span class="text-xs text-gray-400">이상 탐지</span>
+        </div>
+        <p class="text-2xl font-black text-white" id="kpiAnomalyCount">87<span class="text-sm font-normal text-gray-400">건</span></p>
+        <p class="text-xs text-red-400 mt-1">+12건 전월 대비</p>
+      </div>
+      <div class="bg-surface rounded-2xl border border-border p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+            <i data-lucide="percent" class="w-4 h-4 text-purple-400"></i>
+          </div>
+          <span class="text-xs text-gray-400">탐지율</span>
+        </div>
+        <p class="text-2xl font-black text-white" id="kpiDetectionRate">0.70<span class="text-sm font-normal text-gray-400">%</span></p>
+        <p class="text-xs text-green-400 mt-1">정상 범위 이내</p>
+      </div>
+      <div class="bg-surface rounded-2xl border border-border p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+            <i data-lucide="wallet" class="w-4 h-4 text-amber-400"></i>
+          </div>
+          <span class="text-xs text-gray-400">예상 손실액</span>
+        </div>
+        <p class="text-2xl font-black text-white" id="kpiLoss">₩2.4<span class="text-sm font-normal text-gray-400">억</span></p>
+        <p class="text-xs text-amber-400 mt-1">연간 추정치</p>
+      </div>
+
+      <!-- Alert Panel -->
+      <div class="col-span-2 bg-surface rounded-2xl border border-border p-5 max-h-[260px] flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <i data-lucide="bell-ring" class="w-4 h-4 text-red-400"></i>
+            <h3 class="text-sm font-bold text-white">실시간 알림</h3>
+          </div>
+          <button onclick="batchInspection()" class="px-3 py-1.5 text-[11px] rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors">
+            점검 지시서 일괄 발행
+          </button>
+        </div>
+        <div id="alertFeed" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Monthly Bar Chart -->
+    <div class="lg:col-span-2 bg-surface rounded-2xl border border-border p-6">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-2">
+          <i data-lucide="bar-chart-3" class="w-5 h-5 text-accentSky"></i>
+          <h2 class="text-lg font-bold text-white">월별 이상 탐지 건수</h2>
+        </div>
+        <span class="text-xs text-gray-500">최근 12개월</span>
+      </div>
+      <div class="flex items-end gap-2 h-[200px]" id="barChart"></div>
+      <div class="flex gap-2 mt-2" id="barLabels"></div>
+    </div>
+
+    <!-- Donut Chart -->
+    <div class="bg-surface rounded-2xl border border-border p-6">
+      <div class="flex items-center gap-2 mb-6">
+        <i data-lucide="pie-chart" class="w-5 h-5 text-accentSky"></i>
+        <h2 class="text-lg font-bold text-white">이상 유형별 분류</h2>
+      </div>
+      <div class="flex flex-col items-center gap-4">
+        <div class="relative">
+          <svg width="180" height="180" viewBox="0 0 180 180" id="donutChart"></svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span class="text-2xl font-black text-white">87</span>
+            <span class="text-[11px] text-gray-400">총 이상</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-xs" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Analysis Controls -->
+  <div class="bg-surface rounded-2xl border border-border p-6">
+    <div class="flex items-center gap-2 mb-5">
+      <i data-lucide="settings-2" class="w-5 h-5 text-accentSky"></i>
+      <h2 class="text-lg font-bold text-white">분석 제어</h2>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+      <div>
+        <label class="text-xs text-gray-400 mb-2 block">알고리즘 선택</label>
+        <select id="algorithmSelect" class="w-full bg-surfaceLight border border-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-accentSky/50 appearance-none cursor-pointer">
+          <option value="isolation_forest">Isolation Forest</option>
+          <option value="zscore">Z-Score</option>
+          <option value="dbscan">DBSCAN</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-2 block">임계값 (Threshold)</label>
+        <div class="flex items-center gap-3">
+          <input type="range" id="sensitivitySlider" min="30" max="80" value="50"
+            class="flex-1 h-2 bg-surfaceLight rounded-full appearance-none cursor-pointer
+            [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+            [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accentSky [&::-webkit-slider-thumb]:cursor-pointer
+            [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-sky-300">
+          <span id="sensitivityValue" class="text-sm font-mono text-accentSky min-w-[50px] text-right">-0.50</span>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs text-gray-400 mb-2 block">탐지 결과</label>
+        <div class="flex items-center gap-2">
+          <span class="text-xl font-bold text-white" id="detectedCount">87</span>
+          <span class="text-xs text-gray-400">건 탐지됨</span>
+        </div>
+      </div>
+      <div>
+        <button id="analyzeBtn" onclick="runAnalysis()" class="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-bold text-sm hover:from-red-600 hover:to-red-700 transition-all flex items-center justify-center gap-2">
+          <i data-lucide="play" class="w-4 h-4"></i>
+          분석 실행
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 4: Anomaly Table -->
+  <div class="bg-surface rounded-2xl border border-border p-6">
+    <div class="flex items-center justify-between mb-5 flex-wrap gap-4">
+      <div class="flex items-center gap-2">
+        <i data-lucide="table-2" class="w-5 h-5 text-accentSky"></i>
+        <h2 class="text-lg font-bold text-white">이상 계기 목록</h2>
+        <span class="text-xs text-gray-500 ml-2" id="tableCount">(87건)</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <select id="filterRisk" onchange="applyFilters()" class="bg-surfaceLight border border-border rounded-lg px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-accentSky/50 appearance-none cursor-pointer">
+          <option value="all">전체 위험등급</option>
+          <option value="상">상 (위험)</option>
+          <option value="중">중 (주의)</option>
+          <option value="하">하 (관심)</option>
+        </select>
+        <select id="filterRegion" onchange="applyFilters()" class="bg-surfaceLight border border-border rounded-lg px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-accentSky/50 appearance-none cursor-pointer">
+          <option value="all">전체 지역</option>
+        </select>
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="계기번호, 고객명 검색..."
+            class="bg-surfaceLight border border-border rounded-lg pl-9 pr-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-accentSky/50 w-56">
+        </div>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-border text-xs text-gray-400 uppercase tracking-wider">
+            <th class="text-left py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('meterNo')">
+              <span class="flex items-center gap-1">계기번호 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-left py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('customerName')">
+              <span class="flex items-center gap-1">고객명 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-left py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('region')">
+              <span class="flex items-center gap-1">지역 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-right py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('currentUsage')">
+              <span class="flex items-center gap-1 justify-end">현재사용량 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-right py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('expectedUsage')">
+              <span class="flex items-center gap-1 justify-end">예상사용량 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-right py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('anomalyScore')">
+              <span class="flex items-center gap-1 justify-end">이상점수 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-center py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('riskLevel')">
+              <span class="flex items-center gap-1 justify-center">위험등급 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+            <th class="text-center py-3 px-3 cursor-pointer hover:text-white transition-colors" onclick="sortTable('status')">
+              <span class="flex items-center gap-1 justify-center">상태 <i data-lucide="chevron-up" class="w-3 h-3 sort-icon"></i></span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="anomalyTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<!-- Region Detail Modal -->
+<div id="regionModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeRegionModal()">
+  <div class="bg-surface border border-border rounded-2xl w-[500px] max-w-[90vw] max-h-[80vh] overflow-y-auto p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="regionModalTitle" class="text-lg font-bold text-white"></h3>
+      <button onclick="closeRegionModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+    </div>
+    <div id="regionModalContent"></div>
+  </div>
+</div>
+
+<!-- Batch Inspection Modal -->
+<div id="batchModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/60 backdrop-blur-sm" onclick="if(event.target===this)closeBatchModal()">
+  <div class="bg-surface border border-border rounded-2xl w-[460px] max-w-[90vw] p-6 text-center">
+    <div class="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mx-auto mb-4">
+      <i data-lucide="check-circle-2" class="w-8 h-8 text-green-400"></i>
+    </div>
+    <h3 class="text-lg font-bold text-white mb-2">점검 지시서 발행 완료</h3>
+    <p class="text-sm text-gray-400 mb-4" id="batchModalText"></p>
+    <button onclick="closeBatchModal()" class="px-6 py-2.5 rounded-xl bg-accentSky text-white font-medium text-sm hover:bg-sky-600 transition-colors">확인</button>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA GENERATION
+// ============================================================
+
+const REGIONS = [
+  { name: '서울', col: 2, row: 1, meters: 3200, anomalies: 28, status: 'danger' },
+  { name: '인천', col: 1, row: 1, meters: 1450, anomalies: 9, status: 'warning' },
+  { name: '경기북부', col: 2, row: 0, meters: 1800, anomalies: 12, status: 'warning' },
+  { name: '경기남부', col: 2, row: 2, meters: 1950, anomalies: 14, status: 'danger' },
+  { name: '강원', col: 3, row: 0, meters: 680, anomalies: 3, status: 'normal' },
+  { name: '충청', col: 1, row: 2, meters: 1100, anomalies: 7, status: 'normal' },
+  { name: '전라', col: 0, row: 2, meters: 980, anomalies: 6, status: 'normal' },
+  { name: '경상', col: 3, row: 2, meters: 1290, anomalies: 8, status: 'warning' },
+];
+
+const REGION_NAMES = REGIONS.map(r => r.name);
+
+const STATUS_MAP = {
+  normal: { bg: 'rgba(34,197,94,0.15)', border: 'rgba(34,197,94,0.3)', text: '#22c55e', label: '정상' },
+  warning: { bg: 'rgba(234,179,8,0.15)', border: 'rgba(234,179,8,0.3)', text: '#eab308', label: '주의' },
+  danger: { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', text: '#ef4444', label: '위험' },
+};
+
+const LAST_NAMES = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황','안','송','류','홍'];
+const FIRST_NAMES = ['민준','서연','하준','지우','서준','서윤','도윤','지민','예준','수빈','시우','하윤','주원','지유','지호','채원','준서','수아','건우','지아','현우','다은','유준','예은','선우','소율','민재','소윤','우진','하은'];
+
+const STATUSES = ['신규탐지','점검중','확인완료','보류'];
+const ANOMALY_TYPES = ['계기 불량','외부 충격','서지','배선 이상','기타'];
+const EVENT_TYPES = ['과소계량 의심','급격한 사용량 감소','계기 오차 초과','야간 사용량 이상','패턴 이탈 탐지','온도 보정 오류'];
+
+function randomBetween(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function randomFloat(a, b, d=2) { return parseFloat((Math.random() * (b - a) + a).toFixed(d)); }
+function randomPick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function padZero(n, len=2) { return String(n).padStart(len, '0'); }
+
+function generateMeterNo() {
+  const prefix = randomPick(['EM','GM','WM']);
+  return `${prefix}-${randomBetween(2020,2025)}-${padZero(randomBetween(1,9999),4)}`;
+}
+
+function generateCustomerName() {
+  return randomPick(LAST_NAMES) + randomPick(FIRST_NAMES);
+}
+
+function generateAnomalyData(count) {
+  const data = [];
+  for (let i = 0; i < count; i++) {
+    const expected = randomBetween(150, 800);
+    const ratio = randomFloat(0.15, 0.75);
+    const current = Math.round(expected * ratio);
+    const score = randomFloat(-0.95, -0.35);
+    let risk;
+    if (score <= -0.7) risk = '상';
+    else if (score <= -0.5) risk = '중';
+    else risk = '하';
+
+    data.push({
+      meterNo: generateMeterNo(),
+      customerName: generateCustomerName(),
+      region: randomPick(REGION_NAMES),
+      currentUsage: current,
+      expectedUsage: expected,
+      anomalyScore: score,
+      riskLevel: risk,
+      status: randomPick(STATUSES),
+      monthlyActual: Array.from({length:12}, () => randomBetween(current * 0.7, current * 1.4)),
+      monthlyExpected: Array.from({length:12}, () => randomBetween(expected * 0.85, expected * 1.15)),
+      events: Array.from({length: randomBetween(2,5)}, () => ({
+        date: `2025-${padZero(randomBetween(1,12))}-${padZero(randomBetween(1,28))}`,
+        type: randomPick(EVENT_TYPES),
+        detail: `이상 점수 ${randomFloat(-0.95,-0.3)} 기록`
+      })),
+    });
+  }
+  return data;
+}
+
+let allAnomalies = generateAnomalyData(30);
+let filteredAnomalies = [...allAnomalies];
+let currentSort = { key: 'anomalyScore', dir: 'asc' };
+let expandedRow = null;
+
+const MONTHLY_DATA = [42, 38, 55, 61, 48, 73, 65, 58, 80, 72, 68, 87];
+const MONTHS = ['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'];
+
+const DONUT_DATA = [
+  { label: '계기 불량', value: 45, color: '#ef4444' },
+  { label: '외부 충격', value: 30, color: '#f59e0b' },
+  { label: '서지', value: 15, color: '#0ea5e9' },
+  { label: '기타', value: 10, color: '#8b5cf6' },
+];
+
+// ============================================================
+// MAP
+// ============================================================
+
+function buildMap() {
+  const grid = document.getElementById('mapGrid');
+  grid.innerHTML = '';
+
+  // Create a 4x3 grid with regions placed at their positions
+  const cells = Array.from({length: 12}, () => null);
+  REGIONS.forEach(r => {
+    const idx = r.row * 4 + r.col;
+    cells[idx] = r;
+  });
+
+  cells.forEach((region, i) => {
+    const cell = document.createElement('div');
+    if (region) {
+      const s = STATUS_MAP[region.status];
+      cell.className = 'region-cell rounded-xl flex flex-col items-center justify-center relative';
+      cell.style.cssText = `background:${s.bg};border:1px solid ${s.border};`;
+      cell.innerHTML = `
+        <span class="text-base font-bold" style="color:${s.text}">${region.name}</span>
+        <span class="text-[11px] text-gray-400 mt-0.5">${region.meters.toLocaleString()}기</span>
+        <span class="text-[11px] font-medium mt-0.5" style="color:${s.text}">${region.anomalies}건 탐지</span>
+        ${region.status === 'danger' ? '<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 pulse-dot"></span>' : ''}
+      `;
+      cell.onclick = () => showRegionDetail(region);
+    } else {
+      cell.className = 'rounded-xl bg-surfaceLight/30 border border-border/30';
+    }
+    grid.appendChild(cell);
+  });
+}
+
+function showRegionDetail(region) {
+  const modal = document.getElementById('regionModal');
+  const s = STATUS_MAP[region.status];
+  document.getElementById('regionModalTitle').innerHTML = `
+    <span class="flex items-center gap-2">
+      <span class="w-3 h-3 rounded-full" style="background:${s.text}"></span>
+      ${region.name} 지역 상세
+    </span>`;
+
+  const regionAnomalies = allAnomalies.filter(a => a.region === region.name);
+  const highCount = regionAnomalies.filter(a => a.riskLevel === '상').length;
+  const midCount = regionAnomalies.filter(a => a.riskLevel === '중').length;
+  const lowCount = regionAnomalies.filter(a => a.riskLevel === '하').length;
+
+  document.getElementById('regionModalContent').innerHTML = `
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <div class="bg-surfaceLight rounded-xl p-3 text-center">
+        <p class="text-xs text-gray-400">관할 계기</p>
+        <p class="text-xl font-bold text-white mt-1">${region.meters.toLocaleString()}</p>
+      </div>
+      <div class="bg-surfaceLight rounded-xl p-3 text-center">
+        <p class="text-xs text-gray-400">이상 탐지</p>
+        <p class="text-xl font-bold" style="color:${s.text}">${region.anomalies}</p>
+      </div>
+      <div class="bg-surfaceLight rounded-xl p-3 text-center">
+        <p class="text-xs text-gray-400">탐지율</p>
+        <p class="text-xl font-bold text-white mt-1">${(region.anomalies / region.meters * 100).toFixed(2)}%</p>
+      </div>
+    </div>
+    <div class="mb-4">
+      <p class="text-xs text-gray-400 mb-2">위험등급 분포</p>
+      <div class="flex gap-2">
+        <div class="flex-1 bg-red-500/10 border border-red-500/20 rounded-lg p-2 text-center">
+          <span class="text-xs text-red-400">상</span>
+          <p class="text-lg font-bold text-red-400">${highCount}</p>
+        </div>
+        <div class="flex-1 bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 text-center">
+          <span class="text-xs text-yellow-400">중</span>
+          <p class="text-lg font-bold text-yellow-400">${midCount}</p>
+        </div>
+        <div class="flex-1 bg-sky-500/10 border border-sky-500/20 rounded-lg p-2 text-center">
+          <span class="text-xs text-sky-400">하</span>
+          <p class="text-lg font-bold text-sky-400">${lowCount}</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="text-xs text-gray-400 mb-2">최근 탐지 내역</p>
+      <div class="space-y-1.5 max-h-[200px] overflow-y-auto">
+        ${regionAnomalies.slice(0, 6).map(a => `
+          <div class="flex items-center justify-between bg-surfaceLight rounded-lg px-3 py-2 text-xs">
+            <span class="text-gray-300 font-mono">${a.meterNo}</span>
+            <span class="text-gray-400">${a.customerName}</span>
+            <span class="font-mono ${a.riskLevel === '상' ? 'text-red-400' : a.riskLevel === '중' ? 'text-yellow-400' : 'text-sky-400'}">${a.anomalyScore}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  setTimeout(() => lucide.createIcons(), 10);
+}
+
+function closeRegionModal() {
+  const modal = document.getElementById('regionModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// ============================================================
+// BAR CHART
+// ============================================================
+
+function buildBarChart() {
+  const container = document.getElementById('barChart');
+  const labels = document.getElementById('barLabels');
+  const max = Math.max(...MONTHLY_DATA);
+  container.innerHTML = '';
+  labels.innerHTML = '';
+
+  MONTHLY_DATA.forEach((val, i) => {
+    const pct = (val / max) * 100;
+    const isLast = i === MONTHLY_DATA.length - 1;
+    const barColor = isLast ? 'bg-red-500' : 'bg-sky-500/70';
+    container.innerHTML += `
+      <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+        <div class="absolute -top-6 text-[11px] font-mono text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">${val}</div>
+        <div class="chart-bar w-full rounded-t-md ${barColor}" style="height:0%" data-height="${pct}"></div>
+      </div>
+    `;
+    labels.innerHTML += `<div class="flex-1 text-center text-[10px] text-gray-500">${MONTHS[i]}</div>`;
+  });
+
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      container.querySelectorAll('.chart-bar').forEach(bar => {
+        bar.style.height = bar.dataset.height + '%';
+      });
+    }, 100);
+  });
+}
+
+// ============================================================
+// DONUT CHART
+// ============================================================
+
+function buildDonutChart() {
+  const svg = document.getElementById('donutChart');
+  const legend = document.getElementById('donutLegend');
+  const cx = 90, cy = 90, r = 70, strokeWidth = 28;
+  const total = DONUT_DATA.reduce((s, d) => s + d.value, 0);
+  const circumference = 2 * Math.PI * r;
+  let offset = 0;
+
+  svg.innerHTML = '';
+  legend.innerHTML = '';
+
+  DONUT_DATA.forEach((d, i) => {
+    const pct = d.value / total;
+    const dashLen = pct * circumference;
+    const dashGap = circumference - dashLen;
+    const rotation = (offset / total) * 360 - 90;
+
+    svg.innerHTML += `
+      <circle class="donut-segment" cx="${cx}" cy="${cy}" r="${r}"
+        fill="none" stroke="${d.color}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${dashLen} ${dashGap}"
+        transform="rotate(${rotation} ${cx} ${cy})"
+        data-label="${d.label}" data-value="${d.value}%" />
+    `;
+
+    legend.innerHTML += `
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-sm flex-shrink-0" style="background:${d.color}"></span>
+        <span class="text-gray-300">${d.label}</span>
+        <span class="text-gray-500 ml-auto font-mono">${d.value}%</span>
+      </div>
+    `;
+
+    offset += d.value;
+  });
+}
+
+// ============================================================
+// TABLE
+// ============================================================
+
+function riskBadge(level) {
+  if (level === '상') return '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-500/15 text-red-400 border border-red-500/20">상</span>';
+  if (level === '중') return '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-yellow-500/15 text-yellow-400 border border-yellow-500/20">중</span>';
+  return '<span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20">하</span>';
+}
+
+function statusBadge(status) {
+  const colors = {
+    '신규탐지': 'bg-red-500/10 text-red-400',
+    '점검중': 'bg-amber-500/10 text-amber-400',
+    '확인완료': 'bg-green-500/10 text-green-400',
+    '보류': 'bg-gray-500/10 text-gray-400',
+  };
+  const c = colors[status] || colors['보류'];
+  return `<span class="px-2.5 py-1 rounded-full text-[11px] font-medium ${c}">${status}</span>`;
+}
+
+function buildTable() {
+  const tbody = document.getElementById('anomalyTableBody');
+  tbody.innerHTML = '';
+  document.getElementById('tableCount').textContent = `(${filteredAnomalies.length}건)`;
+
+  filteredAnomalies.forEach((a, idx) => {
+    const diffPct = ((a.expectedUsage - a.currentUsage) / a.expectedUsage * 100).toFixed(1);
+    const row = document.createElement('tr');
+    row.className = 'table-row border-b border-border/50';
+    row.dataset.idx = idx;
+    row.innerHTML = `
+      <td class="py-3 px-3 font-mono text-xs text-sky-300">${a.meterNo}</td>
+      <td class="py-3 px-3 text-gray-300">${a.customerName}</td>
+      <td class="py-3 px-3 text-gray-400">${a.region}</td>
+      <td class="py-3 px-3 text-right font-mono text-gray-300">${a.currentUsage.toLocaleString()} kWh</td>
+      <td class="py-3 px-3 text-right font-mono text-gray-300">${a.expectedUsage.toLocaleString()} kWh</td>
+      <td class="py-3 px-3 text-right font-mono ${a.anomalyScore <= -0.7 ? 'text-red-400' : a.anomalyScore <= -0.5 ? 'text-yellow-400' : 'text-sky-400'}">${a.anomalyScore.toFixed(2)}</td>
+      <td class="py-3 px-3 text-center">${riskBadge(a.riskLevel)}</td>
+      <td class="py-3 px-3 text-center">${statusBadge(a.status)}</td>
+    `;
+    row.onclick = () => toggleDetail(idx);
+    tbody.appendChild(row);
+
+    // Detail panel row
+    const detailRow = document.createElement('tr');
+    detailRow.id = `detail-${idx}`;
+    detailRow.className = 'border-b border-border/30';
+    detailRow.innerHTML = `<td colspan="8" class="p-0"><div class="detail-panel" id="detailPanel-${idx}"></div></td>`;
+    tbody.appendChild(detailRow);
+  });
+}
+
+function toggleDetail(idx) {
+  const panel = document.getElementById(`detailPanel-${idx}`);
+  if (!panel) return;
+
+  if (expandedRow === idx) {
+    panel.classList.remove('open');
+    expandedRow = null;
+    return;
+  }
+
+  // Close previous
+  if (expandedRow !== null) {
+    const prev = document.getElementById(`detailPanel-${expandedRow}`);
+    if (prev) prev.classList.remove('open');
+  }
+
+  const a = filteredAnomalies[idx];
+  const months = ['3월','4월','5월','6월','7월','8월','9월','10월','11월','12월','1월','2월'];
+  const maxVal = Math.max(...a.monthlyActual, ...a.monthlyExpected);
+
+  panel.innerHTML = `
+    <div class="p-5 bg-surfaceLight/50">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Usage Chart -->
+        <div class="lg:col-span-2">
+          <div class="flex items-center gap-4 mb-3">
+            <h4 class="text-sm font-bold text-white">12개월 사용량 비교</h4>
+            <div class="flex items-center gap-3 text-[11px]">
+              <span class="flex items-center gap-1"><span class="w-3 h-1 rounded-full bg-sky-400"></span>실제</span>
+              <span class="flex items-center gap-1"><span class="w-3 h-1 rounded-full bg-gray-500"></span>예상</span>
+            </div>
+          </div>
+          <div class="flex items-end gap-1 h-[140px]">
+            ${months.map((m, i) => {
+              const aPct = (a.monthlyActual[i] / maxVal * 100).toFixed(1);
+              const ePct = (a.monthlyExpected[i] / maxVal * 100).toFixed(1);
+              return `
+                <div class="flex-1 flex gap-0.5 items-end h-full">
+                  <div class="flex-1 bg-sky-500/60 rounded-t-sm" style="height:${aPct}%"></div>
+                  <div class="flex-1 bg-gray-600/40 rounded-t-sm" style="height:${ePct}%"></div>
+                </div>`;
+            }).join('')}
+          </div>
+          <div class="flex gap-1 mt-1">
+            ${months.map(m => `<div class="flex-1 text-center text-[9px] text-gray-500">${m}</div>`).join('')}
+          </div>
+        </div>
+
+        <!-- Details -->
+        <div class="space-y-4">
+          <div class="bg-surface rounded-xl p-4 border border-border">
+            <p class="text-xs text-gray-400 mb-2">Isolation Forest 이상 점수</p>
+            <div class="flex items-center gap-3">
+              <span class="text-3xl font-black ${a.anomalyScore <= -0.7 ? 'text-red-400' : a.anomalyScore <= -0.5 ? 'text-yellow-400' : 'text-sky-400'}">${a.anomalyScore.toFixed(2)}</span>
+              <div class="flex-1">
+                <div class="h-2 bg-surfaceLight rounded-full overflow-hidden">
+                  <div class="h-full rounded-full ${a.anomalyScore <= -0.7 ? 'bg-red-500' : a.anomalyScore <= -0.5 ? 'bg-yellow-500' : 'bg-sky-500'}" style="width:${Math.abs(a.anomalyScore) * 100}%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="text-xs text-gray-400 mb-2">관련 이벤트</p>
+            <div class="space-y-1.5 max-h-[120px] overflow-y-auto">
+              ${a.events.map(e => `
+                <div class="text-[11px] bg-surface rounded-lg px-3 py-2 border border-border/50">
+                  <span class="text-gray-500">${e.date}</span>
+                  <span class="text-gray-300 ml-2">${e.type}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <button onclick="requestInspection('${a.meterNo}');event.stopPropagation();"
+            class="w-full py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2">
+            <i data-lucide="clipboard-check" class="w-4 h-4"></i>
+            현장 점검 요청
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  panel.classList.add('open');
+  expandedRow = idx;
+  setTimeout(() => lucide.createIcons(), 10);
+}
+
+function requestInspection(meterNo) {
+  alert(`계기번호 ${meterNo}에 대한 현장 점검이 요청되었습니다.`);
+}
+
+// ============================================================
+// SORTING
+// ============================================================
+
+function sortTable(key) {
+  if (currentSort.key === key) {
+    currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSort.key = key;
+    currentSort.dir = 'asc';
+  }
+
+  filteredAnomalies.sort((a, b) => {
+    let va = a[key], vb = b[key];
+    if (typeof va === 'string') {
+      return currentSort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    return currentSort.dir === 'asc' ? va - vb : vb - va;
+  });
+
+  expandedRow = null;
+  buildTable();
+}
+
+// ============================================================
+// FILTERING
+// ============================================================
+
+function populateRegionFilter() {
+  const select = document.getElementById('filterRegion');
+  REGION_NAMES.forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = r;
+    select.appendChild(opt);
+  });
+}
+
+function applyFilters() {
+  const risk = document.getElementById('filterRisk').value;
+  const region = document.getElementById('filterRegion').value;
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+  filteredAnomalies = allAnomalies.filter(a => {
+    if (risk !== 'all' && a.riskLevel !== risk) return false;
+    if (region !== 'all' && a.region !== region) return false;
+    if (search && !a.meterNo.toLowerCase().includes(search) && !a.customerName.includes(search)) return false;
+    return true;
+  });
+
+  // Re-apply sort
+  filteredAnomalies.sort((a, b) => {
+    let va = a[currentSort.key], vb = b[currentSort.key];
+    if (typeof va === 'string') {
+      return currentSort.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    return currentSort.dir === 'asc' ? va - vb : vb - va;
+  });
+
+  expandedRow = null;
+  buildTable();
+}
+
+// ============================================================
+// SENSITIVITY SLIDER
+// ============================================================
+
+const slider = document.getElementById('sensitivitySlider');
+const sensitivityLabel = document.getElementById('sensitivityValue');
+const detectedCountEl = document.getElementById('detectedCount');
+
+slider.addEventListener('input', () => {
+  const val = -(slider.value / 100);
+  sensitivityLabel.textContent = val.toFixed(2);
+
+  // Dynamically compute how many anomalies pass the threshold
+  const count = allAnomalies.filter(a => a.anomalyScore <= val).length;
+  detectedCountEl.textContent = count;
+  document.getElementById('kpiAnomalyCount').innerHTML = `${count}<span class="text-sm font-normal text-gray-400">건</span>`;
+  document.getElementById('kpiDetectionRate').innerHTML = `${(count / 12450 * 100).toFixed(2)}<span class="text-sm font-normal text-gray-400">%</span>`;
+  const loss = (count * 276).toLocaleString();
+  document.getElementById('kpiLoss').innerHTML = `₩${(count * 0.0276).toFixed(1)}<span class="text-sm font-normal text-gray-400">억</span>`;
+});
+
+// ============================================================
+// ANALYSIS BUTTON
+// ============================================================
+
+function runAnalysis() {
+  const btn = document.getElementById('analyzeBtn');
+  btn.disabled = true;
+  btn.classList.add('analyzing-btn');
+  btn.innerHTML = `
+    <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="30 70"></circle></svg>
+    분석 중...
+  `;
+
+  setTimeout(() => {
+    // Regenerate data
+    allAnomalies = generateAnomalyData(randomBetween(25, 35));
+    const threshold = -(slider.value / 100);
+    filteredAnomalies = allAnomalies.filter(a => a.anomalyScore <= threshold);
+
+    // Reset filters
+    document.getElementById('filterRisk').value = 'all';
+    document.getElementById('filterRegion').value = 'all';
+    document.getElementById('searchInput').value = '';
+
+    filteredAnomalies = [...allAnomalies];
+    expandedRow = null;
+    buildTable();
+
+    const count = allAnomalies.filter(a => a.anomalyScore <= threshold).length;
+    detectedCountEl.textContent = count;
+    document.getElementById('kpiAnomalyCount').innerHTML = `${count}<span class="text-sm font-normal text-gray-400">건</span>`;
+
+    btn.disabled = false;
+    btn.classList.remove('analyzing-btn');
+    btn.innerHTML = `<i data-lucide="play" class="w-4 h-4"></i> 분석 실행`;
+    lucide.createIcons();
+
+    // Add alert
+    addAlert(allAnomalies[0].meterNo, '과소계량 의심', allAnomalies[0].anomalyScore.toFixed(2));
+  }, 2500);
+}
+
+// ============================================================
+// ALERTS
+// ============================================================
+
+let alertIdCounter = 0;
+
+function addAlert(meterId, type, score) {
+  const feed = document.getElementById('alertFeed');
+  const now = new Date();
+  const ts = `${padZero(now.getHours())}:${padZero(now.getMinutes())}:${padZero(now.getSeconds())}`;
+
+  const div = document.createElement('div');
+  div.className = 'alert-enter flex items-center gap-3 bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2 text-[11px]';
+  div.innerHTML = `
+    <span class="w-1.5 h-1.5 rounded-full bg-red-400 pulse-dot flex-shrink-0"></span>
+    <span class="text-gray-500 font-mono">${ts}</span>
+    <span class="text-sky-300 font-mono">${meterId}</span>
+    <span class="text-gray-400">${type}</span>
+    <span class="ml-auto text-red-400 font-mono font-bold">${score}</span>
+  `;
+
+  feed.insertBefore(div, feed.firstChild);
+
+  // Limit to 20 alerts
+  while (feed.children.length > 20) {
+    feed.removeChild(feed.lastChild);
+  }
+}
+
+function generateInitialAlerts() {
+  const types = ['과소계량 의심', '급격한 감소', '패턴 이탈', '계기 오차', '서지 감지'];
+  for (let i = 5; i >= 0; i--) {
+    const meter = allAnomalies[i % allAnomalies.length];
+    addAlert(meter.meterNo, randomPick(types), meter.anomalyScore.toFixed(2));
+  }
+}
+
+// Auto-add alerts periodically
+function startAlertFeed() {
+  setInterval(() => {
+    const meter = randomPick(allAnomalies);
+    const types = ['과소계량 의심', '급격한 감소', '패턴 이탈', '계기 오차 초과', '서지 감지', '야간 사용량 이상'];
+    addAlert(meter.meterNo, randomPick(types), meter.anomalyScore.toFixed(2));
+  }, randomBetween(8000, 15000));
+}
+
+// ============================================================
+// BATCH INSPECTION
+// ============================================================
+
+function batchInspection() {
+  const highRisk = allAnomalies.filter(a => a.riskLevel === '상');
+  document.getElementById('batchModalText').textContent =
+    `위험등급 "상" 총 ${highRisk.length}건에 대한 점검 지시서가 발행되었습니다. 담당 부서에 즉시 전달됩니다.`;
+  const modal = document.getElementById('batchModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  setTimeout(() => lucide.createIcons(), 10);
+}
+
+function closeBatchModal() {
+  const modal = document.getElementById('batchModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+
+function updateClock() {
+  const now = new Date();
+  const fmt = `${now.getFullYear()}-${padZero(now.getMonth()+1)}-${padZero(now.getDate())} ${padZero(now.getHours())}:${padZero(now.getMinutes())}:${padZero(now.getSeconds())}`;
+  document.getElementById('currentTime').textContent = fmt;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+function init() {
+  buildMap();
+  buildBarChart();
+  buildDonutChart();
+  populateRegionFilter();
+  sortTable('anomalyScore');
+  generateInitialAlerts();
+  startAlertFeed();
+  updateClock();
+  setInterval(updateClock, 1000);
+  lucide.createIcons();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

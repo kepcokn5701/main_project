@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>재산세 납부실적 RPA | 전력산업 AI 혁신</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;color:#e2e8f0;min-height:100vh;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+
+/* Animations */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(251,146,60,.4)}70%{box-shadow:0 0 0 10px rgba(251,146,60,0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes progressPulse{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes scanLine{0%{top:0;opacity:.8}100%{top:100%;opacity:0}}
+@keyframes typewriter{from{width:0}to{width:100%}}
+@keyframes cursorBlink{0%,100%{border-right-color:transparent}50%{border-right-color:#f59e0b}}
+@keyframes dashMove{to{stroke-dashoffset:0}}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes toastOut{from{opacity:1;transform:translateY(0) scale(1)}to{opacity:0;transform:translateY(20px) scale(.95)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 5px rgba(251,146,60,.2)}50%{box-shadow:0 0 20px rgba(251,146,60,.4)}}
+@keyframes dropzoneActive{0%,100%{border-color:rgba(251,146,60,.3);background:rgba(251,146,60,.03)}50%{border-color:rgba(251,146,60,.7);background:rgba(251,146,60,.08)}}
+@keyframes flowArrow{from{opacity:.3;transform:translateX(-4px)}to{opacity:1;transform:translateX(4px)}}
+@keyframes stepReveal{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes barFill{from{width:0%}to{width:var(--target-width)}}
+@keyframes ripple{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.5);opacity:0}}
+
+.section-card{background:linear-gradient(145deg,#0f172a,#1a2540);border:1px solid rgba(148,163,184,.1);border-radius:12px;animation:fadeInUp .5s ease-out forwards;}
+.section-card:hover{border-color:rgba(251,146,60,.25);}
+.accent-border{border-color:rgba(251,146,60,.4);}
+.accent-bg{background:rgba(251,146,60,.1);}
+.accent-text{color:#fb923c;}
+.amber-glow{box-shadow:0 0 25px rgba(251,146,60,.15);}
+.btn-primary{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;font-weight:600;transition:all .3s;cursor:pointer;border:none;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(245,158,11,.4);}
+.btn-primary:active{transform:translateY(0);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-secondary{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);color:#fb923c;font-weight:500;transition:all .3s;cursor:pointer;}
+.btn-secondary:hover{background:rgba(251,146,60,.2);border-color:rgba(251,146,60,.5);}
+.log-console{background:#020617;border:1px solid rgba(148,163,184,.1);border-radius:8px;font-family:'Courier New',monospace;font-size:12px;max-height:220px;overflow-y:auto;}
+.log-line{animation:slideDown .3s ease-out;}
+.dropzone{border:2px dashed rgba(148,163,184,.25);border-radius:12px;transition:all .3s;cursor:pointer;}
+.dropzone:hover,.dropzone.drag-over{border-color:rgba(251,146,60,.5);background:rgba(251,146,60,.05);animation:dropzoneActive 2s ease-in-out infinite;}
+.table-row-error{background:rgba(239,68,68,.08);border-left:3px solid #ef4444;}
+.table-row-normal{border-left:3px solid transparent;}
+.table-row-normal:hover{background:rgba(251,146,60,.04);}
+.match-card{background:linear-gradient(145deg,#0c1220,#111b30);border:1px solid rgba(148,163,184,.1);border-radius:10px;padding:16px;}
+.flow-arrow{color:#f59e0b;animation:flowArrow 1.2s ease-in-out infinite alternate;}
+.step-item{opacity:0;transform:translateX(-20px);}
+.step-item.active{animation:stepReveal .4s ease-out forwards;}
+.step-item.completed .step-icon{background:linear-gradient(135deg,#22c55e,#16a34a);}
+.step-item.running .step-icon{background:linear-gradient(135deg,#f59e0b,#ea580c);animation:pulse 2s infinite;}
+.step-item.pending .step-icon{background:rgba(100,116,139,.3);}
+.progress-bar-animated{background:linear-gradient(90deg,#f59e0b,#ea580c,#f59e0b);background-size:200% 100%;animation:progressPulse 2s ease-in-out infinite;}
+.toast{position:fixed;bottom:30px;right:30px;z-index:9999;animation:toastIn .4s cubic-bezier(.34,1.56,.64,1);}
+.toast.hiding{animation:toastOut .3s ease-in forwards;}
+.stat-card{background:linear-gradient(145deg,#0f172a,#1a2540);border:1px solid rgba(148,163,184,.1);border-radius:12px;text-align:center;padding:24px 16px;transition:all .3s;}
+.stat-card:hover{border-color:rgba(251,146,60,.3);transform:translateY(-3px);}
+.nav-back{display:inline-flex;align-items:center;gap:6px;color:#94a3b8;text-decoration:none;font-size:14px;transition:all .2s;}
+.nav-back:hover{color:#fb923c;}
+.tab-btn{padding:10px 20px;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;border:1px solid transparent;background:transparent;color:#94a3b8;}
+.tab-btn:hover{color:#e2e8f0;background:rgba(251,146,60,.05);}
+.tab-btn.active{background:rgba(251,146,60,.15);border-color:rgba(251,146,60,.3);color:#fb923c;font-weight:600;}
+.mismatch-tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;}
+.pagination-btn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid rgba(148,163,184,.15);background:transparent;color:#94a3b8;cursor:pointer;transition:all .2s;font-size:13px;}
+.pagination-btn:hover{border-color:rgba(251,146,60,.4);color:#fb923c;}
+.pagination-btn.active{background:rgba(251,146,60,.15);border-color:rgba(251,146,60,.4);color:#fb923c;font-weight:600;}
+.hidden{display:none!important;}
+</style>
+</head>
+<body>
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- ===== TOP NAV ===== -->
+<header style="background:linear-gradient(135deg,#0a1628 0%,#0f2141 50%,#0a1628 100%);border-bottom:1px solid rgba(251,146,60,.15);">
+  <div class="max-w-7xl mx-auto px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="index.html" class="nav-back">
+          <i data-lucide="arrow-left" style="width:18px;height:18px;"></i>
+          <span>돌아가기</span>
+        </a>
+        <div style="width:1px;height:24px;background:rgba(148,163,184,.2);"></div>
+        <div class="flex items-center gap-3">
+          <div style="background:linear-gradient(135deg,#f59e0b,#ea580c);width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(245,158,11,.35);">
+            <i data-lucide="bot" style="width:22px;height:22px;color:#fff;"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-white" style="letter-spacing:-.3px;">재산세 납부실적 RPA</h1>
+            <p class="text-slate-400 text-xs mt-0.5">Property Tax Payment Automation System</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1.5 text-xs rounded-full font-medium" style="background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.3);color:#fb923c;">
+          <i data-lucide="cpu" style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:4px;"></i>
+          Playwright RPA Engine
+        </span>
+        <span class="px-3 py-1.5 text-xs rounded-full font-medium" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);color:#86efac;">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5" style="animation:blink 1.5s infinite;"></span>
+          시스템 정상
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== TAB NAVIGATION ===== -->
+<div class="max-w-7xl mx-auto px-6 mt-6">
+  <div class="flex gap-2 flex-wrap">
+    <button class="tab-btn active" onclick="switchTab('upload')" id="tab-upload">
+      <i data-lucide="upload" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>파일 업로드
+    </button>
+    <button class="tab-btn" onclick="switchTab('preview')" id="tab-preview">
+      <i data-lucide="table-2" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>데이터 미리보기
+    </button>
+    <button class="tab-btn" onclick="switchTab('matching')" id="tab-matching">
+      <i data-lucide="git-compare" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>ERP 매칭
+    </button>
+    <button class="tab-btn" onclick="switchTab('rpa')" id="tab-rpa">
+      <i data-lucide="play-circle" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>RPA 실행
+    </button>
+    <button class="tab-btn" onclick="switchTab('results')" id="tab-results">
+      <i data-lucide="bar-chart-3" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>결과 대시보드
+    </button>
+  </div>
+</div>
+
+<!-- ===== MAIN CONTENT ===== -->
+<main class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+
+  <!-- ============================== 1. FILE UPLOAD SECTION ============================== -->
+  <div id="section-upload">
+    <div class="section-card p-6" style="animation-delay:.1s;">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+          <i data-lucide="file-spreadsheet" style="width:18px;height:18px;color:#fb923c;"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">과세 데이터 파일 업로드</h2>
+          <p class="text-slate-400 text-xs">지자체 재산세 과세내역 엑셀 파일을 업로드하세요</p>
+        </div>
+      </div>
+
+      <!-- Dropzone (before upload) -->
+      <div id="dropzone" class="dropzone p-10 text-center" onclick="simulateFileUpload()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="event.preventDefault();this.classList.remove('drag-over');simulateFileUpload()">
+        <div class="flex flex-col items-center gap-3">
+          <div class="w-16 h-16 rounded-2xl flex items-center justify-center" style="background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.2);">
+            <i data-lucide="upload-cloud" style="width:32px;height:32px;color:#fb923c;"></i>
+          </div>
+          <div>
+            <p class="text-slate-300 text-sm font-medium">엑셀 파일을 드래그하여 놓으세요</p>
+            <p class="text-slate-500 text-xs mt-1">또는 클릭하여 파일을 선택하세요 (.xlsx, .xls)</p>
+          </div>
+          <button class="btn-secondary px-5 py-2.5 rounded-lg text-sm mt-2">
+            <i data-lucide="folder-open" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:5px;"></i>파일 선택
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="upload-loading" class="hidden p-10 text-center" style="border:2px solid rgba(251,146,60,.15);border-radius:12px;background:rgba(251,146,60,.03);">
+        <div class="flex flex-col items-center gap-3">
+          <div style="width:48px;height:48px;border:3px solid rgba(148,163,184,.15);border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite;"></div>
+          <p class="text-slate-300 text-sm font-medium">파일 분석 중...</p>
+          <p class="text-slate-500 text-xs" id="upload-progress-text">데이터 검증 및 파싱 진행 중</p>
+        </div>
+      </div>
+
+      <!-- File info (after upload) -->
+      <div id="file-info" class="hidden">
+        <div style="border:1px solid rgba(34,197,94,.2);border-radius:12px;background:rgba(34,197,94,.05);padding:20px;">
+          <div class="flex items-start gap-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#22c55e,#16a34a);">
+              <i data-lucide="file-check-2" style="width:24px;height:24px;color:#fff;"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-sm font-bold text-white truncate">2025_재산세_과세내역_서울본부.xlsx</h3>
+                <span class="px-2 py-0.5 text-[10px] rounded-full font-medium" style="background:rgba(34,197,94,.15);color:#86efac;">업로드 완료</span>
+              </div>
+              <div class="flex flex-wrap gap-4 mt-2">
+                <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                  <i data-lucide="database" style="width:12px;height:12px;color:#fb923c;"></i>
+                  <span>데이터 건수: <span class="text-white font-medium">3,621건</span></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                  <i data-lucide="hard-drive" style="width:12px;height:12px;color:#fb923c;"></i>
+                  <span>파일크기: <span class="text-white font-medium">2.4 MB</span></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                  <i data-lucide="clock" style="width:12px;height:12px;color:#fb923c;"></i>
+                  <span>업로드일시: <span class="text-white font-medium" id="upload-datetime"></span></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                  <i data-lucide="shield-check" style="width:12px;height:12px;color:#22c55e;"></i>
+                  <span>무결성 검증: <span class="text-green-400 font-medium">통과</span></span>
+                </div>
+              </div>
+            </div>
+            <button class="btn-secondary px-3 py-1.5 rounded-lg text-xs flex-shrink-0" onclick="resetUpload()">
+              <i data-lucide="refresh-cw" style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:3px;"></i>재업로드
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick stats row -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+          <div class="p-3 rounded-lg" style="background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.15);">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider">총 자산 건수</p>
+            <p class="text-lg font-bold accent-text mt-0.5">3,621</p>
+          </div>
+          <div class="p-3 rounded-lg" style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider">정상 데이터</p>
+            <p class="text-lg font-bold text-green-400 mt-0.5">3,597</p>
+          </div>
+          <div class="p-3 rounded-lg" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider">검증 오류</p>
+            <p class="text-lg font-bold text-red-400 mt-0.5">24</p>
+          </div>
+          <div class="p-3 rounded-lg" style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);">
+            <p class="text-[10px] text-slate-500 uppercase tracking-wider">총 세액 합계</p>
+            <p class="text-lg font-bold text-indigo-400 mt-0.5">48.7억</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 2. DATA PREVIEW TABLE ============================== -->
+  <div id="section-preview" class="hidden">
+    <div class="section-card p-6" style="animation-delay:.15s;">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+            <i data-lucide="table-2" style="width:18px;height:18px;color:#fb923c;"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-white">과세 데이터 미리보기</h2>
+            <p class="text-slate-400 text-xs">총 3,621건 중 1~15 표시 | <span class="text-red-400">빨간색 행</span> = 불일치 데이터</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="btn-secondary px-3 py-1.5 rounded-lg text-xs">
+            <i data-lucide="filter" style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:3px;"></i>필터
+          </button>
+          <button class="btn-secondary px-3 py-1.5 rounded-lg text-xs">
+            <i data-lucide="download" style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:3px;"></i>내보내기
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto" style="border:1px solid rgba(148,163,184,.08);border-radius:8px;">
+        <table class="w-full text-xs" style="min-width:900px;">
+          <thead>
+            <tr style="background:rgba(251,146,60,.06);border-bottom:1px solid rgba(148,163,184,.1);">
+              <th class="text-left px-3 py-2.5 text-slate-400 font-semibold" style="width:50px;">No</th>
+              <th class="text-left px-3 py-2.5 text-slate-400 font-semibold">자산코드</th>
+              <th class="text-left px-3 py-2.5 text-slate-400 font-semibold">자산명</th>
+              <th class="text-left px-3 py-2.5 text-slate-400 font-semibold">소재지</th>
+              <th class="text-right px-3 py-2.5 text-slate-400 font-semibold">과세표준액</th>
+              <th class="text-right px-3 py-2.5 text-slate-400 font-semibold">세액</th>
+              <th class="text-center px-3 py-2.5 text-slate-400 font-semibold">납부기한</th>
+              <th class="text-center px-3 py-2.5 text-slate-400 font-semibold" style="width:70px;">상태</th>
+            </tr>
+          </thead>
+          <tbody id="data-table-body">
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-4">
+        <p class="text-xs text-slate-500">총 3,621건 중 1-15 표시</p>
+        <div class="flex items-center gap-1.5">
+          <button class="pagination-btn" onclick="changePage('prev')"><i data-lucide="chevron-left" style="width:14px;height:14px;"></i></button>
+          <button class="pagination-btn active" data-page="1">1</button>
+          <button class="pagination-btn" data-page="2">2</button>
+          <button class="pagination-btn" data-page="3">3</button>
+          <span class="text-slate-500 text-xs px-1">...</span>
+          <button class="pagination-btn" data-page="242">242</button>
+          <button class="pagination-btn" onclick="changePage('next')"><i data-lucide="chevron-right" style="width:14px;height:14px;"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 3. ERP MATCHING PANEL ============================== -->
+  <div id="section-matching" class="hidden">
+    <!-- Matching Summary -->
+    <div class="section-card p-6 mb-6" style="animation-delay:.1s;">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+          <i data-lucide="git-compare" style="width:18px;height:18px;color:#fb923c;"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">ERP 3-Way 매칭 분석</h2>
+          <p class="text-slate-400 text-xs">지자체 데이터 vs ERP 자산대장 vs 세금계산서 교차 검증</p>
+        </div>
+      </div>
+
+      <!-- 3-Way Matching Flow Diagram -->
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center mb-6">
+        <!-- Source 1: 지자체 데이터 -->
+        <div class="match-card text-center">
+          <div class="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center" style="background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);">
+            <i data-lucide="building-2" style="width:24px;height:24px;color:#818cf8;"></i>
+          </div>
+          <p class="text-xs font-bold text-white">지자체 데이터</p>
+          <p class="text-[10px] text-slate-400 mt-1">과세내역 원본</p>
+          <p class="text-lg font-bold text-indigo-400 mt-1">3,621건</p>
+        </div>
+
+        <!-- Arrow -->
+        <div class="hidden md:flex items-center justify-center">
+          <div class="flow-arrow">
+            <i data-lucide="arrow-right" style="width:28px;height:28px;"></i>
+          </div>
+        </div>
+
+        <!-- Matching Engine -->
+        <div class="match-card text-center" style="border-color:rgba(251,146,60,.3);background:linear-gradient(145deg,rgba(251,146,60,.06),rgba(234,88,12,.03));">
+          <div class="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center" style="background:linear-gradient(135deg,#f59e0b,#ea580c);">
+            <i data-lucide="scan" style="width:24px;height:24px;color:#fff;"></i>
+          </div>
+          <p class="text-xs font-bold accent-text">매칭 엔진</p>
+          <p class="text-[10px] text-slate-400 mt-1">자산코드 + 세액 비교</p>
+          <div class="flex items-center justify-center gap-2 mt-2">
+            <span class="px-2 py-0.5 text-[10px] rounded-full" style="background:rgba(34,197,94,.15);color:#86efac;">99.3% 일치</span>
+          </div>
+        </div>
+
+        <!-- Arrow -->
+        <div class="hidden md:flex items-center justify-center">
+          <div class="flow-arrow">
+            <i data-lucide="arrow-right" style="width:28px;height:28px;"></i>
+          </div>
+        </div>
+
+        <!-- Source 2: ERP 데이터 -->
+        <div class="match-card text-center">
+          <div class="w-12 h-12 rounded-xl mx-auto mb-2 flex items-center justify-center" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);">
+            <i data-lucide="server" style="width:24px;height:24px;color:#86efac;"></i>
+          </div>
+          <p class="text-xs font-bold text-white">ERP 데이터</p>
+          <p class="text-xs text-slate-400 mt-1">자산관리대장</p>
+          <p class="text-lg font-bold text-green-400 mt-1">3,618건</p>
+        </div>
+      </div>
+
+      <!-- Matching Results Summary -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div class="p-4 rounded-lg text-center" style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.15);">
+          <i data-lucide="check-circle-2" style="width:20px;height:20px;color:#22c55e;margin:0 auto 6px;display:block;"></i>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">완전 일치</p>
+          <p class="text-xl font-bold text-green-400 mt-1">3,597</p>
+          <p class="text-[10px] text-slate-500">건 (99.3%)</p>
+        </div>
+        <div class="p-4 rounded-lg text-center" style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.15);">
+          <i data-lucide="alert-triangle" style="width:20px;height:20px;color:#ef4444;margin:0 auto 6px;display:block;"></i>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">불일치</p>
+          <p class="text-xl font-bold text-red-400 mt-1">24</p>
+          <p class="text-[10px] text-slate-500">건 (0.7%)</p>
+        </div>
+        <div class="p-4 rounded-lg text-center" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.15);">
+          <i data-lucide="alert-circle" style="width:20px;height:20px;color:#eab308;margin:0 auto 6px;display:block;"></i>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">세액 차이</p>
+          <p class="text-xl font-bold text-yellow-400 mt-1">15</p>
+          <p class="text-[10px] text-slate-500">건</p>
+        </div>
+        <div class="p-4 rounded-lg text-center" style="background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.15);">
+          <i data-lucide="link-2-off" style="width:20px;height:20px;color:#a855f7;margin:0 auto 6px;display:block;"></i>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">코드 불일치</p>
+          <p class="text-xl font-bold text-purple-400 mt-1">9</p>
+          <p class="text-[10px] text-slate-500">건</p>
+        </div>
+      </div>
+
+      <!-- Side-by-side Mismatch Detail -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i data-lucide="list-x" style="width:14px;height:14px;color:#ef4444;"></i>
+            불일치 상세 내역 (24건)
+          </h3>
+          <button class="btn-secondary px-3 py-1.5 rounded-lg text-xs">
+            <i data-lucide="download" style="width:12px;height:12px;display:inline;vertical-align:-2px;margin-right:3px;"></i>불일치 리포트
+          </button>
+        </div>
+
+        <div class="space-y-2" id="mismatch-list">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 4. RPA EXECUTION CONTROL ============================== -->
+  <div id="section-rpa" class="hidden">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Left: Execution Steps -->
+      <div class="lg:col-span-2 space-y-6">
+        <!-- RPA Control Panel -->
+        <div class="section-card p-6" style="animation-delay:.1s;">
+          <div class="flex items-center justify-between mb-5">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+                <i data-lucide="play-circle" style="width:18px;height:18px;color:#fb923c;"></i>
+              </div>
+              <div>
+                <h2 class="text-base font-bold text-white">RPA 실행 제어</h2>
+                <p class="text-slate-400 text-xs">Playwright 기반 자동 ERP 데이터 입력</p>
+              </div>
+            </div>
+            <div id="rpa-status-badge" class="px-3 py-1.5 text-xs rounded-full font-medium" style="background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.2);color:#94a3b8;">
+              대기 중
+            </div>
+          </div>
+
+          <!-- Big RPA Execute Button -->
+          <div id="rpa-button-area" class="text-center py-6">
+            <button id="btn-rpa-execute" class="btn-primary px-10 py-4 rounded-xl text-base" onclick="startRPA()" style="animation:glowPulse 2s ease-in-out infinite;">
+              <i data-lucide="zap" style="width:20px;height:20px;display:inline;vertical-align:-4px;margin-right:8px;"></i>
+              RPA 실행
+            </button>
+            <p class="text-slate-500 text-xs mt-3">일치 데이터 3,597건을 ERP에 자동 입력합니다</p>
+          </div>
+
+          <!-- Execution Steps -->
+          <div id="rpa-steps" class="hidden space-y-3 mt-4">
+            <div class="step-item" id="step-1" data-step="1">
+              <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+                <div class="step-icon w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(100,116,139,.3);">
+                  <i data-lucide="globe" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs font-medium text-white">Step 1: ERP 시스템 접속</p>
+                  <p class="text-[10px] text-slate-500 step-detail">Playwright 브라우저 인스턴스 시작 및 ERP 포털 접속</p>
+                </div>
+                <div class="step-status flex-shrink-0"></div>
+              </div>
+            </div>
+            <div class="step-item" id="step-2" data-step="2">
+              <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+                <div class="step-icon w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(100,116,139,.3);">
+                  <i data-lucide="log-in" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs font-medium text-white">Step 2: 로그인 처리</p>
+                  <p class="text-[10px] text-slate-500 step-detail">SSO 인증 및 권한 확인</p>
+                </div>
+                <div class="step-status flex-shrink-0"></div>
+              </div>
+            </div>
+            <div class="step-item" id="step-3" data-step="3">
+              <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+                <div class="step-icon w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(100,116,139,.3);">
+                  <i data-lucide="navigation" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs font-medium text-white">Step 3: 재산세 납부실적 메뉴 진입</p>
+                  <p class="text-[10px] text-slate-500 step-detail">자산관리 > 세금관리 > 재산세 납부실적 메뉴 탐색</p>
+                </div>
+                <div class="step-status flex-shrink-0"></div>
+              </div>
+            </div>
+            <div class="step-item" id="step-4" data-step="4">
+              <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+                <div class="step-icon w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(100,116,139,.3);">
+                  <i data-lucide="database" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs font-medium text-white">Step 4: 데이터 입력</p>
+                  <p class="text-[10px] text-slate-500 step-detail">3,597건 자동 입력 처리</p>
+                </div>
+                <div class="step-status flex-shrink-0">
+                  <div id="step4-progress-mini" class="hidden text-[10px] text-amber-400 font-mono"></div>
+                </div>
+              </div>
+              <!-- Progress bar for step 4 -->
+              <div id="step4-progress-bar" class="hidden mt-2 mx-3">
+                <div class="w-full h-2 rounded-full" style="background:rgba(148,163,184,.1);">
+                  <div id="step4-bar" class="h-full rounded-full progress-bar-animated transition-all" style="width:0%;"></div>
+                </div>
+                <div class="flex justify-between mt-1">
+                  <span class="text-[10px] text-slate-500" id="step4-count">0 / 3,597</span>
+                  <span class="text-[10px] text-slate-500" id="step4-eta">예상 소요: 계산 중...</span>
+                </div>
+              </div>
+            </div>
+            <div class="step-item" id="step-5" data-step="5">
+              <div class="flex items-center gap-3 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+                <div class="step-icon w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(100,116,139,.3);">
+                  <i data-lucide="check-circle" style="width:16px;height:16px;color:#fff;"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-xs font-medium text-white">Step 5: 처리 완료</p>
+                  <p class="text-[10px] text-slate-500 step-detail">결과 검증 및 리포트 생성</p>
+                </div>
+                <div class="step-status flex-shrink-0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Overall Progress Bar -->
+          <div id="rpa-overall-progress" class="hidden mt-5 p-4 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-white">전체 진행률</span>
+              <span class="text-xs font-bold accent-text" id="overall-percent">0%</span>
+            </div>
+            <div class="w-full h-3 rounded-full" style="background:rgba(148,163,184,.1);">
+              <div id="overall-bar" class="h-full rounded-full progress-bar-animated transition-all" style="width:0%;"></div>
+            </div>
+            <div class="flex justify-between mt-1.5">
+              <span class="text-[10px] text-slate-500" id="overall-elapsed">경과: 0초</span>
+              <span class="text-[10px] text-slate-500" id="overall-eta">예상 잔여: 계산 중...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Real-time Log Console -->
+      <div class="lg:col-span-1">
+        <div class="section-card p-5 sticky top-6" style="animation-delay:.2s;">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-6 h-6 rounded flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+              <i data-lucide="terminal" style="width:13px;height:13px;color:#fb923c;"></i>
+            </div>
+            <h3 class="text-xs font-bold text-white">실시간 로그</h3>
+            <div class="flex-1"></div>
+            <div id="log-status-dot" class="w-2 h-2 rounded-full" style="background:#64748b;"></div>
+          </div>
+          <div class="log-console p-3" id="log-console">
+            <div class="text-slate-600 text-[11px]">[시스템] RPA 엔진 대기 중...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== 5. RESULTS DASHBOARD ============================== -->
+  <div id="section-results" class="hidden">
+    <div class="section-card p-6" style="animation-delay:.1s;">
+      <div class="flex items-center gap-3 mb-6">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(251,146,60,.15);">
+          <i data-lucide="bar-chart-3" style="width:18px;height:18px;color:#fb923c;"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-white">RPA 실행 결과 대시보드</h2>
+          <p class="text-slate-400 text-xs">자동화 실행 결과 및 효율성 분석</p>
+        </div>
+      </div>
+
+      <!-- Before/After Comparison -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Before -->
+        <div class="p-5 rounded-xl" style="background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.15);">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-6 h-6 rounded flex items-center justify-center" style="background:rgba(239,68,68,.15);">
+              <i data-lucide="clock" style="width:14px;height:14px;color:#ef4444;"></i>
+            </div>
+            <span class="text-xs font-bold text-red-400 uppercase tracking-wider">BEFORE (수작업)</span>
+          </div>
+          <div class="text-center py-4">
+            <p class="text-4xl font-bold text-red-400">180<span class="text-xl">시간</span></p>
+            <p class="text-xs text-slate-500 mt-2">직원 5명 x 36시간 소요</p>
+          </div>
+          <div class="space-y-2 mt-4">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">데이터 입력</span>
+              <span class="text-slate-300">120시간</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">검증 및 수정</span>
+              <span class="text-slate-300">40시간</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">리포트 작성</span>
+              <span class="text-slate-300">20시간</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- After -->
+        <div class="p-5 rounded-xl" style="background:rgba(34,197,94,.04);border:1px solid rgba(34,197,94,.15);">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="w-6 h-6 rounded flex items-center justify-center" style="background:rgba(34,197,94,.15);">
+              <i data-lucide="zap" style="width:14px;height:14px;color:#22c55e;"></i>
+            </div>
+            <span class="text-xs font-bold text-green-400 uppercase tracking-wider">AFTER (RPA 자동화)</span>
+          </div>
+          <div class="text-center py-4">
+            <p class="text-4xl font-bold text-green-400">1<span class="text-xl">시간</span></p>
+            <p class="text-xs text-slate-500 mt-2">RPA 자동 처리 + 최종 확인</p>
+          </div>
+          <div class="space-y-2 mt-4">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">자동 데이터 입력</span>
+              <span class="text-slate-300">42분</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">자동 검증</span>
+              <span class="text-slate-300">8분</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">리포트 자동 생성</span>
+              <span class="text-slate-300">10분</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Efficiency Arrow -->
+      <div class="text-center mb-6 p-4 rounded-xl" style="background:linear-gradient(135deg,rgba(251,146,60,.06),rgba(234,88,12,.03));border:1px solid rgba(251,146,60,.15);">
+        <div class="flex items-center justify-center gap-6">
+          <div>
+            <p class="text-3xl font-bold text-red-400 line-through opacity-60">180h</p>
+          </div>
+          <div class="flex items-center gap-2 accent-text">
+            <i data-lucide="arrow-right" style="width:28px;height:28px;"></i>
+          </div>
+          <div>
+            <p class="text-3xl font-bold text-green-400">1h</p>
+          </div>
+          <div style="width:1px;height:40px;background:rgba(148,163,184,.15);"></div>
+          <div>
+            <p class="text-3xl font-bold accent-text">99.4%</p>
+            <p class="text-[10px] text-slate-500">시간 절감율</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card">
+          <div class="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(251,146,60,.12);">
+            <i data-lucide="check-circle" style="width:20px;height:20px;color:#fb923c;"></i>
+          </div>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">처리 건수</p>
+          <p class="text-2xl font-bold text-white mt-1" id="result-processed">3,597</p>
+          <p class="text-[10px] text-slate-500">건 완료</p>
+        </div>
+        <div class="stat-card">
+          <div class="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(34,197,94,.12);">
+            <i data-lucide="shield-check" style="width:20px;height:20px;color:#22c55e;"></i>
+          </div>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">오류 건수</p>
+          <p class="text-2xl font-bold text-green-400 mt-1">0</p>
+          <p class="text-[10px] text-slate-500">건 (오류율 0%)</p>
+        </div>
+        <div class="stat-card">
+          <div class="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(99,102,241,.12);">
+            <i data-lucide="timer" style="width:20px;height:20px;color:#818cf8;"></i>
+          </div>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">소요 시간</p>
+          <p class="text-2xl font-bold text-indigo-400 mt-1">42<span class="text-sm">분</span></p>
+          <p class="text-[10px] text-slate-500">자동 처리 완료</p>
+        </div>
+        <div class="stat-card">
+          <div class="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style="background:rgba(168,85,247,.12);">
+            <i data-lucide="trending-up" style="width:20px;height:20px;color:#a855f7;"></i>
+          </div>
+          <p class="text-[10px] text-slate-500 uppercase tracking-wider">절감 비용</p>
+          <p class="text-2xl font-bold text-purple-400 mt-1">2,340<span class="text-sm">만원</span></p>
+          <p class="text-[10px] text-slate-500">연간 추정</p>
+        </div>
+      </div>
+
+      <!-- Processing Details Bar Chart -->
+      <div class="p-5 rounded-xl mb-6" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+        <h3 class="text-sm font-bold text-white mb-4">처리 상세 내역</h3>
+        <div class="space-y-3">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400">ERP 입력 완료</span>
+              <span class="text-green-400 font-medium">3,597건</span>
+            </div>
+            <div class="w-full h-5 rounded-full" style="background:rgba(148,163,184,.08);">
+              <div class="h-full rounded-full flex items-center pl-2" style="width:99.3%;background:linear-gradient(90deg,#22c55e,#16a34a);--target-width:99.3%;animation:barFill 1.5s ease-out forwards;">
+                <span class="text-[9px] text-white font-bold">99.3%</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400">불일치 제외 (수동처리 필요)</span>
+              <span class="text-red-400 font-medium">24건</span>
+            </div>
+            <div class="w-full h-5 rounded-full" style="background:rgba(148,163,184,.08);">
+              <div class="h-full rounded-full flex items-center pl-2" style="width:4%;min-width:40px;background:linear-gradient(90deg,#ef4444,#dc2626);--target-width:4%;animation:barFill 1.5s ease-out .3s forwards;">
+                <span class="text-[9px] text-white font-bold">0.7%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Download Button -->
+      <div class="text-center">
+        <button class="btn-primary px-8 py-3 rounded-xl text-sm" onclick="downloadReport()">
+          <i data-lucide="file-down" style="width:16px;height:16px;display:inline;vertical-align:-3px;margin-right:6px;"></i>
+          엑셀 리포트 다운로드
+        </button>
+        <p class="text-slate-500 text-xs mt-2">처리 결과 및 불일치 상세 리포트 (XLSX)</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div id="toast-container"></div>
+
+<script>
+// =========================================
+// DATA GENERATION
+// =========================================
+
+const assetNames = [
+  "서울 강남 사옥 빌딩", "영등포 변전소 부지", "마포 데이터센터", "송파 연수원", "강서 물류센터",
+  "서초 기술연구소", "용산 관리사무소", "성동 배전센터", "강북 송전탑 부지", "노원 변전소",
+  "관악 통신시설 부지", "동작 배전설비실", "중랑 급전분소", "도봉 변전소 부지", "은평 사옥",
+  "양천 배전센터", "구로 디지털센터", "금천 기자재창고", "동대문 전력시험소", "서대문 송변전소",
+  "종로 행정센터", "중구 본부별관", "성북 연구시설", "광진 변전소", "강동 배전센터",
+  "마포 신재생에너지센터", "영등포 전력관리소", "강남 ICT센터", "송파 배전자동화센터", "서초 교육원"
+];
+
+const locations = [
+  "서울 강남구 테헤란로 152", "서울 영등포구 여의대로 24", "서울 마포구 마포대로 45",
+  "서울 송파구 올림픽로 300", "서울 강서구 공항대로 168", "서울 서초구 서초대로 74길 11",
+  "서울 용산구 한강대로 95", "서울 성동구 왕십리로 50", "서울 강북구 도봉로 123",
+  "서울 노원구 동일로 1243", "서울 관악구 관악로 145", "서울 동작구 상도로 369",
+  "서울 중랑구 면목로 42", "서울 도봉구 마들로 678", "서울 은평구 통일로 890",
+  "서울 양천구 목동서로 225", "서울 구로구 디지털로 32길 30", "서울 금천구 가산디지털2로 98",
+  "서울 동대문구 전농로 10", "서울 서대문구 연세로 50", "서울 종로구 율곡로 194",
+  "서울 중구 세종대로 110", "서울 성북구 안암로 145", "서울 광진구 아차산로 200",
+  "서울 강동구 천호대로 1073"
+];
+
+const mismatchReasons = [
+  { reason: "세액 차이", detail: "지자체 세액과 ERP 세액 불일치", color: "rgba(234,179,8,.15)", textColor: "#eab308", border: "rgba(234,179,8,.3)" },
+  { reason: "자산코드 불일치", detail: "ERP 자산코드 미등록 또는 불일치", color: "rgba(168,85,247,.15)", textColor: "#a855f7", border: "rgba(168,85,247,.3)" },
+  { reason: "소재지 변경", detail: "자산 소재지 주소 변경사항 미반영", color: "rgba(99,102,241,.15)", textColor: "#818cf8", border: "rgba(99,102,241,.3)" },
+  { reason: "과세표준 차이", detail: "과세표준액 산정기준 차이 발생", color: "rgba(239,68,68,.15)", textColor: "#ef4444", border: "rgba(239,68,68,.3)" }
+];
+
+function generateAssetCode(i) {
+  const prefixes = ["BLD","LND","FAC","EQP","INF"];
+  return prefixes[i % 5] + "-" + String(2025000 + i).padStart(7, "0");
+}
+
+function formatCurrency(val) {
+  return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+function generateTableData() {
+  const rows = [];
+  const errorIndices = [3, 7, 11, 14]; // 0-indexed rows that will show errors
+  for (let i = 0; i < 15; i++) {
+    const baseVal = Math.floor(Math.random() * 900000000) + 100000000;
+    const taxRate = [0.0025, 0.003, 0.004, 0.005][Math.floor(Math.random() * 4)];
+    const taxAmt = Math.floor(baseVal * taxRate);
+    const isError = errorIndices.includes(i);
+    rows.push({
+      no: i + 1,
+      code: generateAssetCode(i),
+      name: assetNames[i % assetNames.length],
+      location: locations[i % locations.length],
+      baseAmount: baseVal,
+      taxAmount: taxAmt,
+      deadline: "2025-07-31",
+      isError: isError,
+      errorReason: isError ? mismatchReasons[Math.floor(Math.random() * mismatchReasons.length)] : null
+    });
+  }
+  return rows;
+}
+
+function generateMismatchData() {
+  const items = [];
+  const reasons = [
+    { count: 8, reason: mismatchReasons[0] },
+    { count: 7, reason: mismatchReasons[0] },
+    { count: 5, reason: mismatchReasons[1] },
+    { count: 4, reason: mismatchReasons[1] },
+    { count: 3, reason: mismatchReasons[2] },
+    { count: 2, reason: mismatchReasons[2] },
+    { count: 2, reason: mismatchReasons[3] },
+    { count: 1, reason: mismatchReasons[3] },
+  ];
+  for (let i = 0; i < 8; i++) {
+    const r = reasons[i];
+    const idx = 200 + i * 47;
+    items.push({
+      code: generateAssetCode(idx),
+      name: assetNames[(idx) % assetNames.length],
+      reason: r.reason,
+      localTax: formatCurrency(Math.floor(Math.random() * 5000000) + 500000),
+      erpTax: formatCurrency(Math.floor(Math.random() * 5000000) + 500000),
+    });
+  }
+  return items;
+}
+
+// =========================================
+// RENDER FUNCTIONS
+// =========================================
+
+function renderTable() {
+  const tbody = document.getElementById("data-table-body");
+  const data = generateTableData();
+  tbody.innerHTML = data.map(r => `
+    <tr class="${r.isError ? 'table-row-error' : 'table-row-normal'}" style="border-bottom:1px solid rgba(148,163,184,.06);">
+      <td class="px-3 py-2.5 text-slate-500 font-mono">${r.no}</td>
+      <td class="px-3 py-2.5 font-mono text-xs ${r.isError ? 'text-red-400' : 'text-amber-400'}">${r.code}</td>
+      <td class="px-3 py-2.5 text-slate-200 text-xs">${r.name}</td>
+      <td class="px-3 py-2.5 text-slate-400 text-xs">${r.location}</td>
+      <td class="px-3 py-2.5 text-right text-slate-300 font-mono text-xs">${formatCurrency(r.baseAmount)}</td>
+      <td class="px-3 py-2.5 text-right font-mono text-xs ${r.isError ? 'text-red-400 font-medium' : 'text-white'}">${formatCurrency(r.taxAmount)}</td>
+      <td class="px-3 py-2.5 text-center text-slate-400 text-xs">${r.deadline}</td>
+      <td class="px-3 py-2.5 text-center">
+        ${r.isError
+          ? `<span class="mismatch-tag" style="background:${r.errorReason.color};color:${r.errorReason.textColor};border:1px solid ${r.errorReason.border};">
+              <i data-lucide="alert-triangle" style="width:10px;height:10px;"></i>${r.errorReason.reason}</span>`
+          : '<span class="mismatch-tag" style="background:rgba(34,197,94,.12);color:#86efac;border:1px solid rgba(34,197,94,.25);"><i data-lucide="check" style="width:10px;height:10px;"></i>정상</span>'
+        }
+      </td>
+    </tr>
+  `).join("");
+  lucide.createIcons();
+}
+
+function renderMismatchList() {
+  const container = document.getElementById("mismatch-list");
+  const data = generateMismatchData();
+  container.innerHTML = data.map((item, i) => `
+    <div class="flex items-center gap-4 p-3 rounded-lg" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.06);animation:fadeInUp .4s ease-out ${i * 0.05}s both;">
+      <div class="w-6 text-center">
+        <span class="text-[10px] text-slate-600 font-mono">${i + 1}</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-mono accent-text">${item.code}</span>
+          <span class="text-xs text-slate-300 truncate">${item.name}</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <div class="text-right">
+          <p class="text-[10px] text-slate-500">지자체</p>
+          <p class="text-xs text-slate-300 font-mono">${item.localTax}원</p>
+        </div>
+        <i data-lucide="arrow-right" style="width:12px;height:12px;color:#64748b;flex-shrink:0;"></i>
+        <div class="text-right">
+          <p class="text-[10px] text-slate-500">ERP</p>
+          <p class="text-xs text-slate-300 font-mono">${item.erpTax}원</p>
+        </div>
+        <span class="mismatch-tag flex-shrink-0" style="background:${item.reason.color};color:${item.reason.textColor};border:1px solid ${item.reason.border};">
+          ${item.reason.reason}
+        </span>
+      </div>
+    </div>
+  `).join("");
+  lucide.createIcons();
+}
+
+// =========================================
+// TAB NAVIGATION
+// =========================================
+
+function switchTab(tab) {
+  // Hide all sections
+  document.querySelectorAll("[id^='section-']").forEach(s => s.classList.add("hidden"));
+  // Deactivate all tab buttons
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  // Show target section
+  document.getElementById("section-" + tab).classList.remove("hidden");
+  document.getElementById("tab-" + tab).classList.add("active");
+  // Re-create icons for newly visible content
+  lucide.createIcons();
+}
+
+// =========================================
+// FILE UPLOAD SIMULATION
+// =========================================
+
+let fileUploaded = false;
+
+function simulateFileUpload() {
+  if (fileUploaded) return;
+  const dropzone = document.getElementById("dropzone");
+  const loading = document.getElementById("upload-loading");
+  const info = document.getElementById("file-info");
+
+  dropzone.classList.add("hidden");
+  loading.classList.remove("hidden");
+
+  const progressTexts = [
+    "파일 형식 확인 중...",
+    "엑셀 데이터 파싱 중...",
+    "3,621건 데이터 검증 중...",
+    "과세표준액 유효성 검사 중...",
+    "자산코드 형식 검증 중...",
+    "데이터 무결성 확인 완료"
+  ];
+
+  let step = 0;
+  const progressInterval = setInterval(() => {
+    if (step < progressTexts.length) {
+      document.getElementById("upload-progress-text").textContent = progressTexts[step];
+      step++;
+    } else {
+      clearInterval(progressInterval);
+      loading.classList.add("hidden");
+      info.classList.remove("hidden");
+      fileUploaded = true;
+
+      // Set upload datetime
+      const now = new Date();
+      const formatted = now.getFullYear() + "-" +
+        String(now.getMonth() + 1).padStart(2, "0") + "-" +
+        String(now.getDate()).padStart(2, "0") + " " +
+        String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0") + ":" +
+        String(now.getSeconds()).padStart(2, "0");
+      document.getElementById("upload-datetime").textContent = formatted;
+
+      lucide.createIcons();
+      showToast("success", "파일 업로드 완료", "3,621건의 과세 데이터가 성공적으로 로드되었습니다.");
+    }
+  }, 400);
+}
+
+function resetUpload() {
+  fileUploaded = false;
+  document.getElementById("dropzone").classList.remove("hidden");
+  document.getElementById("file-info").classList.add("hidden");
+  lucide.createIcons();
+}
+
+// =========================================
+// RPA EXECUTION
+// =========================================
+
+let rpaRunning = false;
+let rpaCompleted = false;
+const TOTAL_RECORDS = 3597;
+
+const logMessages = {
+  step1: [
+    "[RPA] Playwright 브라우저 엔진 초기화...",
+    "[RPA] Chromium headless 인스턴스 시작",
+    "[RPA] 브라우저 컨텍스트 생성 완료",
+    "[RPA] https://erp.company.co.kr 접속 중...",
+    "[RPA] ERP 포털 페이지 로드 완료 (HTTP 200)",
+    "[RPA] SSL 인증서 확인: 유효",
+  ],
+  step2: [
+    "[AUTH] 로그인 페이지 감지",
+    "[AUTH] 사용자 ID 입력: rpa_admin_****",
+    "[AUTH] SSO 인증 토큰 요청...",
+    "[AUTH] MFA 검증 완료",
+    "[AUTH] 로그인 성공 - 세션 ID: SES-2025-0731-****",
+    "[AUTH] 사용자 권한 확인: 재산세관리자",
+  ],
+  step3: [
+    "[NAV] 메인 메뉴 로드 완료",
+    "[NAV] 자산관리 메뉴 클릭",
+    "[NAV] 하위메뉴 펼침: 세금관리",
+    "[NAV] '재산세 납부실적' 메뉴 클릭",
+    "[NAV] 페이지 로드 대기 중...",
+    "[NAV] 재산세 납부실적 화면 진입 완료",
+    "[NAV] 입력 모드 활성화: 일괄등록",
+  ],
+  step5: [
+    "[VERIFY] 입력 데이터 무결성 검증 시작...",
+    "[VERIFY] DB 커밋 확인: 3,597건 정상 저장",
+    "[VERIFY] 합계 검증: 지자체 세액 합계 == ERP 세액 합계 (일치)",
+    "[REPORT] 처리 결과 리포트 생성 중...",
+    "[REPORT] 리포트 생성 완료: RPT-2025-0731-001.xlsx",
+    "[RPA] 전체 프로세스 완료 - 오류 0건",
+    "[RPA] 브라우저 세션 종료",
+    "[SYSTEM] RPA 실행 완료. 소요시간: 42분 17초",
+  ]
+};
+
+function startRPA() {
+  if (rpaRunning || rpaCompleted) return;
+  rpaRunning = true;
+
+  const btn = document.getElementById("btn-rpa-execute");
+  btn.disabled = true;
+  btn.style.animation = "none";
+  btn.innerHTML = '<span style="width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;vertical-align:-3px;margin-right:8px;"></span>실행 중...';
+
+  // Show steps
+  document.getElementById("rpa-steps").classList.remove("hidden");
+  document.getElementById("rpa-overall-progress").classList.remove("hidden");
+
+  // Update status badge
+  updateStatusBadge("실행 중", "#f59e0b", "rgba(251,146,60,.12)", "rgba(251,146,60,.3)");
+
+  // Activate log console
+  document.getElementById("log-status-dot").style.background = "#22c55e";
+  document.getElementById("log-status-dot").style.animation = "blink 1s infinite";
+
+  // Clear log
+  document.getElementById("log-console").innerHTML = "";
+
+  // Start step sequence
+  let elapsedSeconds = 0;
+  const elapsedTimer = setInterval(() => {
+    elapsedSeconds++;
+    document.getElementById("overall-elapsed").textContent = `경과: ${elapsedSeconds}초`;
+  }, 1000);
+
+  executeStep(1, () => {
+    executeStep(2, () => {
+      executeStep(3, () => {
+        executeStep4(() => {
+          executeStep(5, () => {
+            clearInterval(elapsedTimer);
+            rpaCompleted = true;
+            rpaRunning = false;
+            updateStatusBadge("완료", "#22c55e", "rgba(34,197,94,.12)", "rgba(34,197,94,.3)");
+            document.getElementById("overall-percent").textContent = "100%";
+            document.getElementById("overall-bar").style.width = "100%";
+            document.getElementById("overall-eta").textContent = "완료!";
+            document.getElementById("log-status-dot").style.animation = "none";
+
+            btn.innerHTML = '<i data-lucide="check-circle" style="width:16px;height:16px;display:inline;vertical-align:-3px;margin-right:6px;"></i>완료됨';
+            btn.style.background = "linear-gradient(135deg,#22c55e,#16a34a)";
+            lucide.createIcons();
+
+            showToast("success", "RPA 실행 완료", "3,597건 데이터가 ERP에 성공적으로 입력되었습니다.");
+
+            // Auto switch to results after a moment
+            setTimeout(() => {
+              switchTab("results");
+            }, 2000);
+          });
+        });
+      });
+    });
+  });
+}
+
+function executeStep(stepNum, callback) {
+  const stepEl = document.getElementById("step-" + stepNum);
+  const allSteps = document.querySelectorAll(".step-item");
+
+  // Activate step visibility
+  stepEl.classList.add("active");
+
+  // Set to running
+  stepEl.classList.add("running");
+  stepEl.querySelector(".step-status").innerHTML = '<span style="width:14px;height:14px;border:2px solid rgba(148,163,184,.15);border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;"></span>';
+
+  // Get log messages
+  const key = "step" + stepNum;
+  const msgs = logMessages[key] || [];
+
+  // Update overall progress
+  const percents = { 1: 10, 2: 20, 3: 30, 5: 100 };
+  const overallPercent = percents[stepNum] || 0;
+
+  let msgIdx = 0;
+  const logInterval = setInterval(() => {
+    if (msgIdx < msgs.length) {
+      addLog(msgs[msgIdx]);
+      msgIdx++;
+    } else {
+      clearInterval(logInterval);
+      // Complete step
+      stepEl.classList.remove("running");
+      stepEl.classList.add("completed");
+      stepEl.querySelector(".step-status").innerHTML = '<span style="color:#22c55e;"><i data-lucide="check-circle-2" style="width:16px;height:16px;"></i></span>';
+      lucide.createIcons();
+
+      if (overallPercent) {
+        document.getElementById("overall-percent").textContent = overallPercent + "%";
+        document.getElementById("overall-bar").style.width = overallPercent + "%";
+      }
+
+      setTimeout(callback, 300);
+    }
+  }, 350);
+}
+
+function executeStep4(callback) {
+  const stepEl = document.getElementById("step-4");
+  stepEl.classList.add("active", "running");
+  stepEl.querySelector(".step-status").innerHTML = '<span style="width:14px;height:14px;border:2px solid rgba(148,163,184,.15);border-top-color:#f59e0b;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;"></span>';
+
+  document.getElementById("step4-progress-bar").classList.remove("hidden");
+  document.getElementById("step4-progress-mini").classList.remove("hidden");
+
+  addLog("[DATA] 데이터 입력 프로세스 시작 (일괄 모드)");
+  addLog("[DATA] 대상 건수: 3,597건");
+
+  let current = 0;
+  const batchSize = 120; // Process in batches for visual effect
+  const intervalTime = 100;
+  const totalBatches = Math.ceil(TOTAL_RECORDS / batchSize);
+  let batchCount = 0;
+
+  const inputInterval = setInterval(() => {
+    batchCount++;
+    current = Math.min(current + batchSize, TOTAL_RECORDS);
+
+    const percent = Math.round((current / TOTAL_RECORDS) * 100);
+    const overallPercent = 30 + Math.round((current / TOTAL_RECORDS) * 65);
+
+    document.getElementById("step4-bar").style.width = percent + "%";
+    document.getElementById("step4-count").textContent = formatCurrency(current) + " / " + formatCurrency(TOTAL_RECORDS);
+    document.getElementById("step4-progress-mini").textContent = formatCurrency(current) + "/" + formatCurrency(TOTAL_RECORDS);
+
+    // ETA calculation
+    const remainingBatches = totalBatches - batchCount;
+    const etaSeconds = Math.round(remainingBatches * intervalTime / 1000);
+    document.getElementById("step4-eta").textContent = etaSeconds > 0 ? `예상 잔여: ${etaSeconds}초` : "거의 완료...";
+
+    // Overall progress
+    document.getElementById("overall-percent").textContent = overallPercent + "%";
+    document.getElementById("overall-bar").style.width = overallPercent + "%";
+    document.getElementById("overall-eta").textContent = etaSeconds > 0 ? `예상 잔여: ${etaSeconds + 5}초` : "거의 완료...";
+
+    // Periodic log messages
+    if (batchCount % 5 === 0 || current >= TOTAL_RECORDS) {
+      addLog(`[DATA] 입력 진행: ${formatCurrency(current)}/${formatCurrency(TOTAL_RECORDS)} (${percent}%)`);
+    }
+    if (batchCount === 3) {
+      addLog("[DATA] Batch insert 모드 활성화 - 처리 속도 최적화");
+    }
+    if (batchCount === Math.floor(totalBatches / 2)) {
+      addLog("[DATA] 중간 검증: 오류 0건 확인");
+    }
+
+    if (current >= TOTAL_RECORDS) {
+      clearInterval(inputInterval);
+      addLog("[DATA] 전체 데이터 입력 완료: " + formatCurrency(TOTAL_RECORDS) + "건");
+      addLog("[DATA] 트랜잭션 커밋 처리 중...");
+
+      setTimeout(() => {
+        addLog("[DATA] 트랜잭션 커밋 완료");
+        stepEl.classList.remove("running");
+        stepEl.classList.add("completed");
+        stepEl.querySelector(".step-status").innerHTML = '<span style="color:#22c55e;"><i data-lucide="check-circle-2" style="width:16px;height:16px;"></i></span>';
+        document.getElementById("step4-progress-mini").textContent = "완료";
+        document.getElementById("step4-progress-mini").style.color = "#22c55e";
+        lucide.createIcons();
+        setTimeout(callback, 300);
+      }, 600);
+    }
+  }, intervalTime);
+}
+
+function addLog(message) {
+  const console = document.getElementById("log-console");
+  const time = new Date();
+  const ts = String(time.getHours()).padStart(2, "0") + ":" +
+             String(time.getMinutes()).padStart(2, "0") + ":" +
+             String(time.getSeconds()).padStart(2, "0");
+
+  let color = "#94a3b8";
+  if (message.includes("[AUTH]")) color = "#818cf8";
+  else if (message.includes("[NAV]")) color = "#38bdf8";
+  else if (message.includes("[DATA]")) color = "#fb923c";
+  else if (message.includes("[VERIFY]")) color = "#a78bfa";
+  else if (message.includes("[REPORT]")) color = "#22c55e";
+  else if (message.includes("[RPA]")) color = "#fbbf24";
+  else if (message.includes("[SYSTEM]")) color = "#f472b6";
+  else if (message.includes("오류") || message.includes("ERROR")) color = "#ef4444";
+
+  const line = document.createElement("div");
+  line.className = "log-line py-0.5";
+  line.innerHTML = `<span style="color:#475569;">${ts}</span> <span style="color:${color};">${message}</span>`;
+  console.appendChild(line);
+  console.scrollTop = console.scrollHeight;
+}
+
+function updateStatusBadge(text, color, bg, border) {
+  const badge = document.getElementById("rpa-status-badge");
+  badge.textContent = text;
+  badge.style.color = color;
+  badge.style.background = bg;
+  badge.style.borderColor = border;
+}
+
+// =========================================
+// PAGINATION (Mock)
+// =========================================
+
+function changePage(dir) {
+  const btns = document.querySelectorAll(".pagination-btn[data-page]");
+  let currentPage = 1;
+  btns.forEach(b => {
+    if (b.classList.contains("active")) currentPage = parseInt(b.dataset.page);
+  });
+
+  // Just toggle visual active state for demo
+  btns.forEach(b => b.classList.remove("active"));
+  if (dir === "next" && currentPage < 242) {
+    const next = document.querySelector(`.pagination-btn[data-page="${currentPage === 3 ? 242 : currentPage + 1}"]`);
+    if (next) next.classList.add("active");
+  } else if (dir === "prev" && currentPage > 1) {
+    const prev = document.querySelector(`.pagination-btn[data-page="${currentPage === 242 ? 3 : currentPage - 1}"]`);
+    if (prev) prev.classList.add("active");
+  } else {
+    document.querySelector('.pagination-btn[data-page="1"]').classList.add("active");
+  }
+  showToast("info", "페이지 이동", "데모 환경에서는 동일한 샘플 데이터가 표시됩니다.");
+}
+
+// =========================================
+// TOAST NOTIFICATIONS
+// =========================================
+
+function showToast(type, title, message) {
+  const container = document.getElementById("toast-container");
+  const toast = document.createElement("div");
+
+  const colors = {
+    success: { bg: "rgba(34,197,94,.12)", border: "rgba(34,197,94,.3)", icon: "check-circle", iconColor: "#22c55e" },
+    error: { bg: "rgba(239,68,68,.12)", border: "rgba(239,68,68,.3)", icon: "x-circle", iconColor: "#ef4444" },
+    info: { bg: "rgba(99,102,241,.12)", border: "rgba(99,102,241,.3)", icon: "info", iconColor: "#818cf8" },
+    warning: { bg: "rgba(234,179,8,.12)", border: "rgba(234,179,8,.3)", icon: "alert-triangle", iconColor: "#eab308" },
+  };
+
+  const c = colors[type] || colors.info;
+
+  toast.className = "toast";
+  toast.innerHTML = `
+    <div class="flex items-start gap-3 px-4 py-3 rounded-xl" style="background:${c.bg};border:1px solid ${c.border};backdrop-filter:blur(12px);min-width:320px;max-width:400px;">
+      <i data-lucide="${c.icon}" style="width:18px;height:18px;color:${c.iconColor};flex-shrink:0;margin-top:1px;"></i>
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-bold text-white">${title}</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">${message}</p>
+      </div>
+      <button onclick="this.closest('.toast').remove()" style="color:#64748b;background:none;border:none;cursor:pointer;padding:2px;">
+        <i data-lucide="x" style="width:14px;height:14px;"></i>
+      </button>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  lucide.createIcons();
+
+  setTimeout(() => {
+    toast.classList.add("hiding");
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// =========================================
+// DOWNLOAD REPORT (Mock)
+// =========================================
+
+function downloadReport() {
+  showToast("success", "리포트 다운로드", "RPA_실행결과_2025_재산세_서울본부.xlsx 파일이 다운로드됩니다.");
+}
+
+// =========================================
+// INITIALIZATION
+// =========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  lucide.createIcons();
+  renderTable();
+  renderMismatchList();
+});
+</script>
+</body>
+</html>

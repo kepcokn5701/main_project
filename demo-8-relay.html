@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>보호계전기 정정 무결성 검증 | AI 검증 시스템</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;color:#e2e8f0;min-height:100vh;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+
+/* Animations */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes glowBorder{0%,100%{border-color:rgba(139,92,246,.2)}50%{border-color:rgba(139,92,246,.6);box-shadow:0 0 15px rgba(139,92,246,.15)}}
+@keyframes barGrow{from{width:0}to{width:var(--w)}}
+@keyframes gaugeGrow{from{stroke-dashoffset:251}to{stroke-dashoffset:var(--target)}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes progressPulse{0%{box-shadow:0 0 0 0 rgba(139,92,246,.4)}70%{box-shadow:0 0 0 6px rgba(139,92,246,0)}100%{box-shadow:0 0 0 0 rgba(139,92,246,0)}}
+@keyframes checkMark{from{stroke-dashoffset:20}to{stroke-dashoffset:0}}
+
+.spinner{width:16px;height:16px;border:2px solid #334155;border-top-color:#a78bfa;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+.spinner-lg{width:24px;height:24px;border:3px solid #334155;border-top-color:#a78bfa;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;}
+
+.card{background:linear-gradient(145deg,#0f172a,#1a2540);border:1px solid rgba(148,163,184,.1);border-radius:12px;transition:all .3s;}
+.card:hover{border-color:rgba(139,92,246,.3);}
+
+.btn-primary{background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 25px rgba(124,58,237,.4);}
+.btn-primary:active{transform:translateY(0);}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}
+
+.btn-secondary{background:rgba(139,92,246,.1);color:#c4b5fd;border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:8px 18px;font-weight:500;cursor:pointer;transition:all .2s;font-family:'Noto Sans KR',sans-serif;}
+.btn-secondary:hover{background:rgba(139,92,246,.2);border-color:rgba(139,92,246,.5);}
+
+.input-field{background:#0f172a;border:1px solid rgba(148,163,184,.2);border-radius:8px;padding:10px 14px;color:#e2e8f0;font-family:'Noto Sans KR',sans-serif;font-size:14px;transition:border-color .2s;width:100%;}
+.input-field:focus{outline:none;border-color:rgba(139,92,246,.5);box-shadow:0 0 0 3px rgba(139,92,246,.1);}
+
+.tab-btn{padding:10px 20px;border:1px solid rgba(148,163,184,.15);border-bottom:none;border-radius:8px 8px 0 0;cursor:pointer;transition:all .2s;color:#94a3b8;background:rgba(15,23,42,.5);font-family:'Noto Sans KR',sans-serif;font-size:14px;}
+.tab-btn:hover{color:#c4b5fd;border-color:rgba(139,92,246,.3);}
+.tab-btn.active{background:linear-gradient(145deg,#0f172a,#1a2540);color:#c4b5fd;border-color:rgba(139,92,246,.4);font-weight:600;}
+
+.status-badge{padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;}
+.status-pass{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3);}
+.status-warn{background:rgba(234,179,8,.15);color:#fde047;border:1px solid rgba(234,179,8,.3);}
+.status-fail{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);}
+
+.verification-step{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);margin-bottom:8px;opacity:0;transform:translateX(-10px);transition:all .4s ease;}
+.verification-step.visible{opacity:1;transform:translateX(0);}
+.verification-step.active{border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.05);}
+.verification-step.done{border-color:rgba(34,197,94,.2);background:rgba(34,197,94,.03);}
+.verification-step.fail-step{border-color:rgba(239,68,68,.2);background:rgba(239,68,68,.03);}
+
+select.input-field{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px;}
+
+.filter-chip{padding:5px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid rgba(148,163,184,.2);color:#94a3b8;transition:all .2s;background:transparent;}
+.filter-chip:hover{border-color:rgba(139,92,246,.4);color:#c4b5fd;}
+.filter-chip.active{background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#c4b5fd;font-weight:600;}
+
+.progress-bar-track{background:#1e293b;border-radius:4px;height:8px;overflow:hidden;}
+.progress-bar-fill{height:100%;border-radius:4px;transition:width 1.5s cubic-bezier(.4,0,.2,1);}
+
+.gauge-ring{fill:none;stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;}
+
+table{width:100%;border-collapse:separate;border-spacing:0;}
+th{text-align:left;padding:12px 16px;font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid rgba(148,163,184,.1);}
+td{padding:10px 16px;font-size:13px;border-bottom:1px solid rgba(148,163,184,.05);}
+tr:hover td{background:rgba(139,92,246,.03);}
+</style>
+</head>
+<body>
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- ══════════════════════ HEADER ══════════════════════ -->
+<header style="background:linear-gradient(135deg,#0a1628 0%,#12103a 50%,#0a1628 100%);border-bottom:1px solid rgba(139,92,246,.15);">
+  <div class="max-w-7xl mx-auto px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-violet-300 transition-colors text-sm">
+          <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+          <span>목록으로</span>
+        </a>
+        <div style="width:1px;height:24px;background:rgba(148,163,184,.2);"></div>
+        <div class="flex items-center gap-3">
+          <div style="background:linear-gradient(135deg,#7c3aed,#6d28d9);width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 15px rgba(124,58,237,.4);">
+            <i data-lucide="shield-check" style="width:22px;height:22px;color:#fff;"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold text-white" style="letter-spacing:-.3px;">보호계전기 정정 무결성 검증</h1>
+            <p class="text-slate-400 text-xs mt-0.5">AI 기반 계전기 설정값 검증 및 보호협조 분석 시스템</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1.5 text-xs rounded-full font-medium" style="background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#86efac;">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-400 mr-1.5" style="animation:blink 1.5s infinite;"></span>
+          시스템 정상
+        </span>
+        <span class="px-3 py-1.5 text-xs rounded-full" style="background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);color:#c4b5fd;">
+          <i data-lucide="database" style="width:11px;height:11px;display:inline;vertical-align:-1px;margin-right:4px;"></i>
+          계전기 DB: 2,847건
+        </span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════════ TABS ══════════════════════ -->
+<div class="max-w-7xl mx-auto px-6 mt-6">
+  <div class="flex gap-1">
+    <button class="tab-btn active" onclick="switchTab('single')" id="tab-single">
+      <i data-lucide="shield-check" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px;"></i>개별 검증
+    </button>
+    <button class="tab-btn" onclick="switchTab('batch')" id="tab-batch">
+      <i data-lucide="layers" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px;"></i>일괄 검증
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════ SINGLE VERIFICATION TAB ══════════════════════ -->
+<div id="panel-single" class="max-w-7xl mx-auto px-6 pb-12">
+
+  <!-- Row 1: Input Form + Verification Result -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4" style="animation:fadeInUp .5s ease-out;">
+
+    <!-- Relay Setting Input Form -->
+    <div class="card p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">계전기 정정값 입력</h2>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5 font-medium">계전기 ID</label>
+          <select class="input-field" id="relay-id" onchange="onRelaySelect()">
+            <option value="">-- 계전기 선택 --</option>
+            <option value="GCB-101A">GCB-101A</option>
+            <option value="OCR-201B">OCR-201B</option>
+            <option value="DFR-301C">DFR-301C</option>
+            <option value="GCB-402D">GCB-402D</option>
+            <option value="OCR-503E">OCR-503E</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5 font-medium">계전기 유형</label>
+          <input type="text" class="input-field" id="relay-type" readonly placeholder="계전기 ID를 선택하면 자동 입력됩니다" style="color:#a78bfa;background:#0b1120;">
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5 font-medium">정정값</label>
+            <div class="flex gap-2">
+              <input type="number" class="input-field" id="setting-value" placeholder="0.00" step="0.01" style="flex:1;">
+              <span class="input-field text-center text-violet-300 font-medium" id="setting-unit" style="width:60px;background:#0b1120;">--</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5 font-medium">동작시간 (초)</label>
+            <input type="number" class="input-field" id="op-time" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5 font-medium">CT비</label>
+            <input type="text" class="input-field" id="ct-ratio" readonly style="color:#94a3b8;background:#0b1120;">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1.5 font-medium">전압등급</label>
+            <input type="text" class="input-field" id="voltage-class" readonly style="color:#94a3b8;background:#0b1120;">
+          </div>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button class="btn-primary flex-1 flex items-center justify-center gap-2" id="btn-verify" onclick="runVerification()">
+            <i data-lucide="play" style="width:16px;height:16px;"></i>
+            검증 실행
+          </button>
+          <button class="btn-secondary" onclick="resetForm()">
+            <i data-lucide="rotate-ccw" style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:4px;"></i>초기화
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verification Results Panel -->
+    <div class="card p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">검증 결과</h2>
+        <span class="text-xs text-slate-500 ml-auto" id="verify-timestamp"></span>
+      </div>
+
+      <div id="verify-placeholder" class="flex flex-col items-center justify-center py-12 text-slate-500">
+        <i data-lucide="shield-question" style="width:48px;height:48px;opacity:.3;"></i>
+        <p class="mt-3 text-sm">계전기를 선택하고 검증을 실행하세요</p>
+      </div>
+
+      <div id="verify-steps" class="hidden">
+        <div class="verification-step" id="step-1">
+          <div id="step-1-icon" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;"></div>
+          <div class="flex-1">
+            <div class="text-sm font-medium">허용범위 확인</div>
+            <div class="text-xs text-slate-500" id="step-1-detail">대기 중</div>
+          </div>
+        </div>
+        <div class="verification-step" id="step-2">
+          <div id="step-2-icon" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;"></div>
+          <div class="flex-1">
+            <div class="text-sm font-medium">이상탐지 모델 분석</div>
+            <div class="text-xs text-slate-500" id="step-2-detail">대기 중</div>
+          </div>
+        </div>
+        <div class="verification-step" id="step-3">
+          <div id="step-3-icon" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;"></div>
+          <div class="flex-1">
+            <div class="text-sm font-medium">보호협조 검증</div>
+            <div class="text-xs text-slate-500" id="step-3-detail">대기 중</div>
+          </div>
+        </div>
+        <div class="verification-step" id="step-4">
+          <div id="step-4-icon" style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;"></div>
+          <div class="flex-1">
+            <div class="text-sm font-medium">결과 판정</div>
+            <div class="text-xs text-slate-500" id="step-4-detail">대기 중</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Final Result -->
+      <div id="verify-result" class="hidden mt-4 p-4 rounded-lg" style="border:1px solid rgba(148,163,184,.1);">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-semibold text-white">최종 판정</span>
+          <span class="status-badge" id="result-badge"></span>
+        </div>
+        <div class="text-xs text-slate-400 leading-relaxed" id="result-detail"></div>
+        <div class="mt-3 pt-3" style="border-top:1px solid rgba(148,163,184,.08);">
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <div class="text-xs text-slate-500">Isolation Forest</div>
+              <div class="text-sm font-bold text-violet-300" id="result-if-score">--</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500">XGBoost 신뢰도</div>
+              <div class="text-sm font-bold text-violet-300" id="result-xgb-score">--</div>
+            </div>
+            <div>
+              <div class="text-xs text-slate-500">규칙 엔진</div>
+              <div class="text-sm font-bold text-violet-300" id="result-rule-score">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Protection Coordination Curve + Anomaly Detection -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6" style="animation:fadeInUp .5s ease-out .1s both;">
+
+    <!-- Protection Coordination Curve (SVG) -->
+    <div class="card p-6 lg:col-span-2">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+          <h2 class="text-base font-semibold text-white">보호협조 곡선</h2>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1"><span style="width:12px;height:3px;background:#22c55e;border-radius:2px;display:inline-block;"></span> 정상 영역</span>
+          <span class="flex items-center gap-1"><span style="width:12px;height:3px;background:#eab308;border-radius:2px;display:inline-block;"></span> 경고 영역</span>
+          <span class="flex items-center gap-1"><span style="width:12px;height:3px;background:#ef4444;border-radius:2px;display:inline-block;"></span> 오류 영역</span>
+        </div>
+      </div>
+
+      <div style="background:#080e1c;border-radius:8px;border:1px solid rgba(148,163,184,.08);padding:16px;">
+        <svg id="coord-chart" viewBox="0 0 700 400" style="width:100%;height:auto;">
+          <!-- Background zones -->
+          <defs>
+            <linearGradient id="greenZone" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#22c55e" stop-opacity="0.06"/>
+              <stop offset="100%" stop-color="#22c55e" stop-opacity="0.02"/>
+            </linearGradient>
+            <linearGradient id="yellowZone" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#eab308" stop-opacity="0.06"/>
+              <stop offset="100%" stop-color="#eab308" stop-opacity="0.02"/>
+            </linearGradient>
+            <linearGradient id="redZone" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ef4444" stop-opacity="0.08"/>
+              <stop offset="100%" stop-color="#ef4444" stop-opacity="0.02"/>
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+          </defs>
+
+          <!-- Zones -->
+          <rect x="80" y="30" width="200" height="340" fill="url(#redZone)" rx="4"/>
+          <rect x="280" y="30" width="200" height="340" fill="url(#yellowZone)" rx="4"/>
+          <rect x="480" y="30" width="190" height="340" fill="url(#greenZone)" rx="4"/>
+
+          <!-- Zone labels -->
+          <text x="180" y="55" fill="#ef4444" font-size="10" text-anchor="middle" opacity=".6">오류 영역</text>
+          <text x="380" y="55" fill="#eab308" font-size="10" text-anchor="middle" opacity=".6">경고 영역</text>
+          <text x="575" y="55" fill="#22c55e" font-size="10" text-anchor="middle" opacity=".6">정상 영역</text>
+
+          <!-- Grid lines -->
+          <g stroke="rgba(148,163,184,0.06)" stroke-width="1">
+            <line x1="80" y1="100" x2="670" y2="100"/>
+            <line x1="80" y1="170" x2="670" y2="170"/>
+            <line x1="80" y1="240" x2="670" y2="240"/>
+            <line x1="80" y1="310" x2="670" y2="310"/>
+            <line x1="180" y1="30" x2="180" y2="370"/>
+            <line x1="280" y1="30" x2="280" y2="370"/>
+            <line x1="380" y1="30" x2="380" y2="370"/>
+            <line x1="480" y1="30" x2="480" y2="370"/>
+            <line x1="580" y1="30" x2="580" y2="370"/>
+          </g>
+
+          <!-- Axes -->
+          <line x1="80" y1="370" x2="670" y2="370" stroke="rgba(148,163,184,0.2)" stroke-width="1"/>
+          <line x1="80" y1="30" x2="80" y2="370" stroke="rgba(148,163,184,0.2)" stroke-width="1"/>
+
+          <!-- X-axis labels (current - log scale) -->
+          <text x="80" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">10</text>
+          <text x="180" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">50</text>
+          <text x="280" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">100</text>
+          <text x="380" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">500</text>
+          <text x="480" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">1000</text>
+          <text x="580" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">5000</text>
+          <text x="670" y="390" fill="#94a3b8" font-size="10" text-anchor="middle">10000</text>
+          <text x="375" y="398" fill="#64748b" font-size="9" text-anchor="middle" dominant-baseline="hanging">전류 (A)</text>
+
+          <!-- Y-axis labels (time - log scale) -->
+          <text x="72" y="370" fill="#94a3b8" font-size="10" text-anchor="end">0.01</text>
+          <text x="72" y="310" fill="#94a3b8" font-size="10" text-anchor="end">0.05</text>
+          <text x="72" y="240" fill="#94a3b8" font-size="10" text-anchor="end">0.1</text>
+          <text x="72" y="170" fill="#94a3b8" font-size="10" text-anchor="end">0.5</text>
+          <text x="72" y="100" fill="#94a3b8" font-size="10" text-anchor="end">1.0</text>
+          <text x="72" y="37" fill="#94a3b8" font-size="10" text-anchor="end">10.0</text>
+          <text x="20" y="200" fill="#64748b" font-size="9" text-anchor="middle" transform="rotate(-90,20,200)">동작시간 (s)</text>
+
+          <!-- Relay curves -->
+          <!-- GCB-101A (Distance relay) - cyan -->
+          <path d="M 120 40 Q 200 80, 300 180 Q 400 280, 600 340" fill="none" stroke="#22d3ee" stroke-width="2" opacity=".8" id="curve-gcb101"/>
+          <!-- OCR-201B (Overcurrent) - violet -->
+          <path d="M 100 50 Q 180 110, 280 200 Q 380 290, 620 350" fill="none" stroke="#a78bfa" stroke-width="2" opacity=".8" id="curve-ocr201"/>
+          <!-- DFR-301C (Differential) - amber -->
+          <path d="M 150 35 Q 240 65, 340 130 Q 440 200, 580 280" fill="none" stroke="#f59e0b" stroke-width="2" opacity=".8" id="curve-dfr301"/>
+
+          <!-- Legend -->
+          <g transform="translate(490,70)">
+            <rect x="0" y="0" width="170" height="85" rx="6" fill="#0f172a" stroke="rgba(148,163,184,0.1)" stroke-width="1"/>
+            <line x1="10" y1="22" x2="30" y2="22" stroke="#22d3ee" stroke-width="2"/>
+            <text x="38" y="25" fill="#e2e8f0" font-size="10">GCB-101A (거리)</text>
+            <line x1="10" y1="45" x2="30" y2="45" stroke="#a78bfa" stroke-width="2"/>
+            <text x="38" y="48" fill="#e2e8f0" font-size="10">OCR-201B (과전류)</text>
+            <line x1="10" y1="68" x2="30" y2="68" stroke="#f59e0b" stroke-width="2"/>
+            <text x="38" y="71" fill="#e2e8f0" font-size="10">DFR-301C (차동)</text>
+          </g>
+
+          <!-- Current setting point (hidden initially) -->
+          <g id="setting-point" style="display:none;" filter="url(#glow)">
+            <circle cx="0" cy="0" r="8" fill="rgba(139,92,246,0.3)" stroke="#a78bfa" stroke-width="2">
+              <animate attributeName="r" values="8;12;8" dur="2s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values="1;0.6;1" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="0" cy="0" r="3" fill="#c4b5fd"/>
+            <text x="14" y="4" fill="#c4b5fd" font-size="10" font-weight="bold" id="point-label"></text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Anomaly Detection Scores -->
+    <div class="card p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">이상탐지 분석</h2>
+      </div>
+
+      <div id="anomaly-placeholder" class="flex flex-col items-center justify-center py-8 text-slate-500">
+        <i data-lucide="brain" style="width:40px;height:40px;opacity:.3;"></i>
+        <p class="mt-3 text-xs">검증 실행 후 분석 결과가 표시됩니다</p>
+      </div>
+
+      <div id="anomaly-scores" class="hidden space-y-5">
+        <!-- Isolation Forest Gauge -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-300">Isolation Forest Score</span>
+            <span class="text-xs text-slate-500" id="if-score-text">--</span>
+          </div>
+          <div class="flex justify-center">
+            <svg width="160" height="90" viewBox="0 0 160 90">
+              <path d="M 20 80 A 60 60 0 0 1 140 80" fill="none" stroke="#1e293b" stroke-width="10" stroke-linecap="round"/>
+              <!-- Colored arc sections -->
+              <path d="M 20 80 A 60 60 0 0 1 55 28" fill="none" stroke="rgba(239,68,68,0.3)" stroke-width="10" stroke-linecap="round"/>
+              <path d="M 55 28 A 60 60 0 0 1 105 28" fill="none" stroke="rgba(234,179,8,0.3)" stroke-width="10" stroke-linecap="round"/>
+              <path d="M 105 28 A 60 60 0 0 1 140 80" fill="none" stroke="rgba(34,197,94,0.3)" stroke-width="10" stroke-linecap="round"/>
+              <!-- Needle -->
+              <line x1="80" y1="80" x2="80" y2="30" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" id="if-needle" transform="rotate(0,80,80)"/>
+              <circle cx="80" cy="80" r="4" fill="#a78bfa"/>
+              <!-- Labels -->
+              <text x="15" y="88" fill="#ef4444" font-size="8">-1</text>
+              <text x="77" y="18" fill="#eab308" font-size="8">0</text>
+              <text x="140" y="88" fill="#22c55e" font-size="8">+1</text>
+            </svg>
+          </div>
+          <div class="text-center text-xs text-slate-500 mt-1">이상(-1) &larr;&rarr; 정상(+1)</div>
+        </div>
+
+        <!-- XGBoost Confidence -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-slate-300">XGBoost 신뢰도</span>
+            <span class="text-xs font-bold" id="xgb-score-text" style="color:#a78bfa;">--</span>
+          </div>
+          <div class="progress-bar-track">
+            <div class="progress-bar-fill" id="xgb-bar" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
+          </div>
+          <div class="flex justify-between text-xs text-slate-600 mt-1">
+            <span>0%</span><span>50%</span><span>100%</span>
+          </div>
+        </div>
+
+        <!-- Rule Engine Checklist -->
+        <div>
+          <div class="text-xs font-medium text-slate-300 mb-2">규칙 엔진 체크리스트</div>
+          <div class="space-y-1.5" id="rule-checklist">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Verification History -->
+  <div class="card p-6 mt-6" style="animation:fadeInUp .5s ease-out .2s both;">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">검증 이력</h2>
+        <span class="text-xs text-slate-500 ml-2" id="history-count">총 18건</span>
+      </div>
+      <div class="flex items-center gap-2" id="history-filters">
+        <span class="filter-chip active" data-filter="all" onclick="filterHistory('all')">전체</span>
+        <span class="filter-chip" data-filter="pass" onclick="filterHistory('pass')">정상</span>
+        <span class="filter-chip" data-filter="warn" onclick="filterHistory('warn')">경고</span>
+        <span class="filter-chip" data-filter="fail" onclick="filterHistory('fail')">오류</span>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>검증일시</th>
+            <th>계전기 ID</th>
+            <th>유형</th>
+            <th>정정값</th>
+            <th>동작시간</th>
+            <th>IF Score</th>
+            <th>결과</th>
+            <th>검증자</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ BATCH VERIFICATION TAB ══════════════════════ -->
+<div id="panel-batch" class="max-w-7xl mx-auto px-6 pb-12 hidden">
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4" style="animation:fadeInUp .5s ease-out;">
+
+    <!-- Upload panel -->
+    <div class="card p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">PSS/E 결과 업로드</h2>
+      </div>
+
+      <div id="upload-zone" style="border:2px dashed rgba(139,92,246,.3);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .3s;" onmouseover="this.style.borderColor='rgba(139,92,246,.6)';this.style.background='rgba(139,92,246,.03)'" onmouseout="this.style.borderColor='rgba(139,92,246,.3)';this.style.background='transparent'" onclick="startBatchUpload()">
+        <i data-lucide="upload-cloud" style="width:48px;height:48px;color:#7c3aed;opacity:.6;margin:0 auto;display:block;"></i>
+        <p class="text-sm text-slate-300 mt-3">PSS/E 안정도 해석 결과 파일</p>
+        <p class="text-xs text-slate-500 mt-1">클릭하여 파일 선택 또는 드래그 앤 드롭</p>
+        <p class="text-xs text-slate-600 mt-2">.raw, .sav, .csv 지원</p>
+      </div>
+
+      <div id="upload-progress" class="hidden mt-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="spinner"></div>
+          <span class="text-sm text-slate-300" id="upload-status-text">파일 분석 중...</span>
+        </div>
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="upload-bar" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div>
+        </div>
+      </div>
+
+      <div id="upload-complete" class="hidden mt-4 p-3 rounded-lg" style="background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2);">
+        <div class="flex items-center gap-2 text-green-400 text-sm">
+          <i data-lucide="check-circle" style="width:16px;height:16px;"></i>
+          <span>PSS_E_Result_2026_0227.raw 로드 완료</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">5개 계전기 설정값 검출</p>
+      </div>
+
+      <button class="btn-primary w-full mt-5 flex items-center justify-center gap-2" id="btn-batch-verify" onclick="runBatchVerification()" disabled>
+        <i data-lucide="zap" style="width:16px;height:16px;"></i>
+        일괄 검증 실행
+      </button>
+    </div>
+
+    <!-- Batch verification results -->
+    <div class="card p-6 lg:col-span-2">
+      <div class="flex items-center gap-2 mb-5">
+        <div style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></div>
+        <h2 class="text-base font-semibold text-white">일괄 검증 현황</h2>
+      </div>
+
+      <div id="batch-placeholder" class="flex flex-col items-center justify-center py-12 text-slate-500">
+        <i data-lucide="layers" style="width:48px;height:48px;opacity:.3;"></i>
+        <p class="mt-3 text-sm">PSS/E 파일을 업로드하고 일괄 검증을 실행하세요</p>
+      </div>
+
+      <div id="batch-results" class="hidden space-y-3">
+        <!-- 5 relay progress items -->
+        <div class="batch-relay-item" id="batch-item-0">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-white">GCB-101A</span>
+              <span class="text-xs text-slate-500">거리계전기 | 1.2 Ω</span>
+            </div>
+            <span class="text-xs text-slate-400" id="batch-status-0">대기</span>
+          </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="batch-bar-0" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+        </div>
+        <div class="batch-relay-item" id="batch-item-1">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-white">OCR-201B</span>
+              <span class="text-xs text-slate-500">과전류계전기 | 4.5 A</span>
+            </div>
+            <span class="text-xs text-slate-400" id="batch-status-1">대기</span>
+          </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="batch-bar-1" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+        </div>
+        <div class="batch-relay-item" id="batch-item-2">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-white">DFR-301C</span>
+              <span class="text-xs text-slate-500">차동계전기 | 0.35 pu</span>
+            </div>
+            <span class="text-xs text-slate-400" id="batch-status-2">대기</span>
+          </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="batch-bar-2" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+        </div>
+        <div class="batch-relay-item" id="batch-item-3">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-white">GCB-402D</span>
+              <span class="text-xs text-slate-500">거리계전기 | 0.65 Ω</span>
+            </div>
+            <span class="text-xs text-slate-400" id="batch-status-3">대기</span>
+          </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="batch-bar-3" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+        </div>
+        <div class="batch-relay-item" id="batch-item-4">
+          <div class="flex items-center justify-between mb-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-white">OCR-503E</span>
+              <span class="text-xs text-slate-500">과전류계전기 | 8.2 A</span>
+            </div>
+            <span class="text-xs text-slate-400" id="batch-status-4">대기</span>
+          </div>
+          <div class="progress-bar-track"><div class="progress-bar-fill" id="batch-bar-4" style="width:0%;background:linear-gradient(90deg,#7c3aed,#a78bfa);"></div></div>
+        </div>
+
+        <!-- Summary -->
+        <div id="batch-summary" class="hidden mt-4 p-4 rounded-lg" style="background:rgba(15,23,42,.6);border:1px solid rgba(139,92,246,.2);">
+          <div class="text-sm font-semibold text-white mb-3">검증 완료 요약</div>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div class="p-3 rounded-lg" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);">
+              <div class="text-2xl font-bold text-green-400">3</div>
+              <div class="text-xs text-slate-400 mt-1">정상</div>
+            </div>
+            <div class="p-3 rounded-lg" style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.2);">
+              <div class="text-2xl font-bold text-yellow-400">1</div>
+              <div class="text-xs text-slate-400 mt-1">경고</div>
+            </div>
+            <div class="p-3 rounded-lg" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);">
+              <div class="text-2xl font-bold text-red-400">1</div>
+              <div class="text-xs text-slate-400 mt-1">오류</div>
+            </div>
+          </div>
+          <div class="mt-3 text-xs text-slate-500">
+            <span class="text-yellow-400">GCB-402D</span>: 정정값 0.65Ω - 허용범위 하한(0.8Ω) 미만 주의 |
+            <span class="text-red-400">OCR-503E</span>: 정정값 8.2A - 허용범위(3.0~6.5A) 초과 오류
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════ JAVASCRIPT ══════════════════════ -->
+<script>
+// ─── Relay Data ───
+const relayDB = {
+  'GCB-101A': {
+    type: '거리계전기', unit: 'Ω', value: 1.2, opTime: 0.35,
+    ctRatio: '1200/5', voltage: '345kV',
+    range: [1.0, 1.5], ifScore: 0.72, xgbConf: 92,
+    result: 'pass', detail: '현재값 1.2Ω — 허용범위(1.0~1.5Ω) 이내',
+    curveColor: '#22d3ee', curveIdx: 0
+  },
+  'OCR-201B': {
+    type: '과전류계전기', unit: 'A', value: 4.5, opTime: 0.50,
+    ctRatio: '800/5', voltage: '154kV',
+    range: [3.0, 6.5], ifScore: 0.65, xgbConf: 88,
+    result: 'pass', detail: '현재값 4.5A — 허용범위(3.0~6.5A) 이내',
+    curveColor: '#a78bfa', curveIdx: 1
+  },
+  'DFR-301C': {
+    type: '차동계전기', unit: 'pu', value: 0.35, opTime: 0.02,
+    ctRatio: '600/5', voltage: '154kV',
+    range: [0.2, 0.5], ifScore: 0.81, xgbConf: 95,
+    result: 'pass', detail: '현재값 0.35pu — 허용범위(0.2~0.5pu) 이내',
+    curveColor: '#f59e0b', curveIdx: 2
+  },
+  'GCB-402D': {
+    type: '거리계전기', unit: 'Ω', value: 0.65, opTime: 0.28,
+    ctRatio: '1000/5', voltage: '345kV',
+    range: [0.8, 1.3], ifScore: -0.12, xgbConf: 61,
+    result: 'warn', detail: '현재값 0.65Ω — 허용범위(0.8~1.3Ω) 미만. 과소정정 가능성',
+    curveColor: '#22d3ee', curveIdx: 0
+  },
+  'OCR-503E': {
+    type: '과전류계전기', unit: 'A', value: 8.2, opTime: 0.45,
+    ctRatio: '600/5', voltage: '66kV',
+    range: [3.0, 6.5], ifScore: -0.58, xgbConf: 34,
+    result: 'fail', detail: '현재값 8.2A — 허용범위(3.0~6.5A) 초과. 오동작 위험',
+    curveColor: '#a78bfa', curveIdx: 1
+  }
+};
+
+const ruleChecks = [
+  { label: '정정값 허용범위 이내', key: 'range' },
+  { label: '최소 동작시간 충족', key: 'minTime' },
+  { label: '보호협조 마진 확보', key: 'margin' },
+  { label: 'CT비 적합성', key: 'ct' },
+  { label: '이전 검증값 대비 편차', key: 'deviation' },
+  { label: '단락전류 대응 가능', key: 'shortCircuit' }
+];
+
+// ─── Tab switching ───
+function switchTab(tab) {
+  document.getElementById('panel-single').classList.toggle('hidden', tab !== 'single');
+  document.getElementById('panel-batch').classList.toggle('hidden', tab !== 'batch');
+  document.getElementById('tab-single').classList.toggle('active', tab === 'single');
+  document.getElementById('tab-batch').classList.toggle('active', tab === 'batch');
+  lucide.createIcons();
+}
+
+// ─── Relay Selection ───
+function onRelaySelect() {
+  const id = document.getElementById('relay-id').value;
+  if (!id) {
+    document.getElementById('relay-type').value = '';
+    document.getElementById('setting-value').value = '';
+    document.getElementById('setting-unit').textContent = '--';
+    document.getElementById('op-time').value = '';
+    document.getElementById('ct-ratio').value = '';
+    document.getElementById('voltage-class').value = '';
+    return;
+  }
+  const r = relayDB[id];
+  document.getElementById('relay-type').value = r.type;
+  document.getElementById('setting-value').value = r.value;
+  document.getElementById('setting-unit').textContent = r.unit;
+  document.getElementById('op-time').value = r.opTime;
+  document.getElementById('ct-ratio').value = r.ctRatio;
+  document.getElementById('voltage-class').value = r.voltage;
+  updateChartPoint(r);
+}
+
+// ─── Chart Point Update ───
+function updateChartPoint(relay) {
+  const pt = document.getElementById('setting-point');
+  // Map value to chart coordinates based on relay type
+  let cx, cy;
+  const val = parseFloat(document.getElementById('setting-value').value) || relay.value;
+  const time = parseFloat(document.getElementById('op-time').value) || relay.opTime;
+
+  // Simplified mapping for demo
+  if (relay.unit === 'Ω') {
+    cx = 80 + (val / 2.0) * 590;
+    cy = 370 - (time / 10.0) * 340;
+  } else if (relay.unit === 'A') {
+    cx = 80 + (Math.log10(val * 100) / 4.0) * 590;
+    cy = 370 - (time / 10.0) * 340;
+  } else {
+    cx = 80 + (val * 2) * 295;
+    cy = 370 - (time / 10.0) * 340;
+  }
+
+  cx = Math.max(85, Math.min(665, cx));
+  cy = Math.max(35, Math.min(365, cy));
+
+  pt.style.display = 'block';
+  pt.setAttribute('transform', `translate(${cx},${cy})`);
+  document.getElementById('point-label').textContent = `${val}${relay.unit}`;
+
+  // Highlight the corresponding curve
+  const curves = ['curve-gcb101', 'curve-ocr201', 'curve-dfr301'];
+  curves.forEach((c, i) => {
+    const el = document.getElementById(c);
+    if (i === relay.curveIdx) {
+      el.setAttribute('stroke-width', '3');
+      el.setAttribute('opacity', '1');
+    } else {
+      el.setAttribute('stroke-width', '1.5');
+      el.setAttribute('opacity', '0.4');
+    }
+  });
+}
+
+// ─── Verification Process ───
+let verifyRunning = false;
+function runVerification() {
+  const id = document.getElementById('relay-id').value;
+  if (!id) { alert('계전기를 선택하세요.'); return; }
+  if (verifyRunning) return;
+  verifyRunning = true;
+
+  const relay = relayDB[id];
+  const inputVal = parseFloat(document.getElementById('setting-value').value);
+  const inputTime = parseFloat(document.getElementById('op-time').value);
+
+  // Determine result based on input vs range
+  let result, detail, ifScore, xgbConf;
+  if (inputVal >= relay.range[0] && inputVal <= relay.range[1]) {
+    result = 'pass';
+    detail = `현재값 ${inputVal}${relay.unit} — 허용범위(${relay.range[0]}~${relay.range[1]}${relay.unit}) 이내. 정상 판정`;
+    ifScore = (0.5 + Math.random() * 0.4).toFixed(2);
+    xgbConf = Math.floor(85 + Math.random() * 14);
+  } else if (inputVal < relay.range[0] * 0.7 || inputVal > relay.range[1] * 1.3) {
+    result = 'fail';
+    const dir = inputVal < relay.range[0] ? '미만' : '초과';
+    detail = `현재값 ${inputVal}${relay.unit} — 허용범위(${relay.range[0]}~${relay.range[1]}${relay.unit}) ${dir}. 오동작 위험`;
+    ifScore = (-0.3 - Math.random() * 0.5).toFixed(2);
+    xgbConf = Math.floor(20 + Math.random() * 25);
+  } else {
+    result = 'warn';
+    const dir = inputVal < relay.range[0] ? '미만' : '초과';
+    detail = `현재값 ${inputVal}${relay.unit} — 허용범위(${relay.range[0]}~${relay.range[1]}${relay.unit}) ${dir}. 과소/과대 정정 주의`;
+    ifScore = (-0.05 + Math.random() * 0.3).toFixed(2);
+    xgbConf = Math.floor(50 + Math.random() * 25);
+  }
+
+  // Show steps
+  document.getElementById('verify-placeholder').classList.add('hidden');
+  document.getElementById('verify-steps').classList.remove('hidden');
+  document.getElementById('verify-result').classList.add('hidden');
+  document.getElementById('btn-verify').disabled = true;
+
+  const now = new Date();
+  document.getElementById('verify-timestamp').textContent =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+
+  // Reset steps
+  for (let i = 1; i <= 4; i++) {
+    const step = document.getElementById(`step-${i}`);
+    step.classList.remove('visible', 'active', 'done', 'fail-step');
+    document.getElementById(`step-${i}-icon`).innerHTML = '';
+    document.getElementById(`step-${i}-detail`).textContent = '대기 중';
+  }
+
+  // Animate steps
+  const steps = [
+    { id: 1, text: '허용범위 확인 중...', doneText: `허용범위 ${relay.range[0]}~${relay.range[1]}${relay.unit} 확인 완료`, delay: 400, duration: 800, ok: true },
+    { id: 2, text: '이상탐지 모델 분석 중...', doneText: `IF=${ifScore}, XGBoost=${xgbConf}%`, delay: 1400, duration: 1200, ok: true },
+    { id: 3, text: '보호협조 검증 중...', doneText: '상위/하위 계전기 보호협조 마진 확인', delay: 2800, duration: 1000, ok: result !== 'fail' },
+    { id: 4, text: '결과 판정 중...', doneText: result === 'pass' ? '정상 판정' : result === 'warn' ? '경고 - 추가 검토 필요' : '오류 - 즉시 조치 필요', delay: 4000, duration: 600, ok: result === 'pass' }
+  ];
+
+  steps.forEach(s => {
+    // Show step
+    setTimeout(() => {
+      const el = document.getElementById(`step-${s.id}`);
+      el.classList.add('visible', 'active');
+      document.getElementById(`step-${s.id}-icon`).innerHTML = '<div class="spinner"></div>';
+      document.getElementById(`step-${s.id}-detail`).textContent = s.text;
+      document.getElementById(`step-${s.id}-detail`).style.color = '#94a3b8';
+    }, s.delay);
+
+    // Complete step
+    setTimeout(() => {
+      const el = document.getElementById(`step-${s.id}`);
+      el.classList.remove('active');
+      el.classList.add(s.ok ? 'done' : 'fail-step');
+      document.getElementById(`step-${s.id}-icon`).innerHTML = s.ok
+        ? '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="rgba(34,197,94,0.15)" stroke="#22c55e" stroke-width="1.5"/><path d="M6 10l3 3 5-5" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="rgba(239,68,68,0.15)" stroke="#ef4444" stroke-width="1.5"/><path d="M7 7l6 6M13 7l-6 6" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/></svg>';
+      document.getElementById(`step-${s.id}-detail`).textContent = s.doneText;
+      document.getElementById(`step-${s.id}-detail`).style.color = s.ok ? '#86efac' : '#fca5a5';
+    }, s.delay + s.duration);
+  });
+
+  // Show final result
+  setTimeout(() => {
+    showResult(result, detail, ifScore, xgbConf, relay, inputVal);
+    verifyRunning = false;
+    document.getElementById('btn-verify').disabled = false;
+  }, 5000);
+}
+
+function showResult(result, detail, ifScore, xgbConf, relay, inputVal) {
+  const panel = document.getElementById('verify-result');
+  panel.classList.remove('hidden');
+  panel.style.animation = 'fadeInUp .4s ease-out';
+
+  const badge = document.getElementById('result-badge');
+  if (result === 'pass') {
+    badge.className = 'status-badge status-pass';
+    badge.textContent = '정상';
+    panel.style.borderColor = 'rgba(34,197,94,.2)';
+    panel.style.background = 'rgba(34,197,94,.03)';
+  } else if (result === 'warn') {
+    badge.className = 'status-badge status-warn';
+    badge.textContent = '경고';
+    panel.style.borderColor = 'rgba(234,179,8,.2)';
+    panel.style.background = 'rgba(234,179,8,.03)';
+  } else {
+    badge.className = 'status-badge status-fail';
+    badge.textContent = '오류';
+    panel.style.borderColor = 'rgba(239,68,68,.2)';
+    panel.style.background = 'rgba(239,68,68,.03)';
+  }
+
+  document.getElementById('result-detail').textContent = detail;
+  document.getElementById('result-if-score').textContent = ifScore;
+  document.getElementById('result-xgb-score').textContent = xgbConf + '%';
+  document.getElementById('result-rule-score').textContent = result === 'pass' ? '6/6 Pass' : result === 'warn' ? '4/6 Pass' : '2/6 Pass';
+
+  // Update anomaly panel
+  showAnomalyScores(parseFloat(ifScore), xgbConf, result);
+
+  // Update chart
+  updateChartPoint(relay);
+}
+
+function showAnomalyScores(ifVal, xgbVal, result) {
+  document.getElementById('anomaly-placeholder').classList.add('hidden');
+  document.getElementById('anomaly-scores').classList.remove('hidden');
+
+  // IF Score text
+  document.getElementById('if-score-text').textContent = ifVal.toFixed(2);
+  document.getElementById('if-score-text').style.color = ifVal > 0.3 ? '#86efac' : ifVal > -0.1 ? '#fde047' : '#fca5a5';
+
+  // IF Needle rotation: -1 => -90deg, 0 => 0deg, +1 => 90deg
+  const angle = ifVal * 90;
+  document.getElementById('if-needle').setAttribute('transform', `rotate(${angle},80,80)`);
+
+  // XGBoost bar
+  document.getElementById('xgb-score-text').textContent = xgbVal + '%';
+  document.getElementById('xgb-score-text').style.color = xgbVal > 75 ? '#86efac' : xgbVal > 50 ? '#fde047' : '#fca5a5';
+  setTimeout(() => {
+    document.getElementById('xgb-bar').style.width = xgbVal + '%';
+    document.getElementById('xgb-bar').style.background = xgbVal > 75
+      ? 'linear-gradient(90deg,#22c55e,#4ade80)'
+      : xgbVal > 50
+        ? 'linear-gradient(90deg,#eab308,#facc15)'
+        : 'linear-gradient(90deg,#ef4444,#f87171)';
+  }, 100);
+
+  // Rule engine checklist
+  const container = document.getElementById('rule-checklist');
+  container.innerHTML = '';
+  const passCount = result === 'pass' ? 6 : result === 'warn' ? 4 : 2;
+  ruleChecks.forEach((rule, i) => {
+    const pass = i < passCount;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 text-xs';
+    div.style.padding = '4px 8px';
+    div.style.borderRadius = '4px';
+    div.style.background = pass ? 'rgba(34,197,94,.05)' : 'rgba(239,68,68,.05)';
+    div.style.border = pass ? '1px solid rgba(34,197,94,.1)' : '1px solid rgba(239,68,68,.1)';
+    div.style.animation = `fadeIn .3s ease-out ${i * 0.08}s both`;
+    div.innerHTML = pass
+      ? `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="rgba(34,197,94,0.15)"/><path d="M4 7l2 2 4-4" fill="none" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/></svg><span style="color:#86efac;">${rule.label}</span>`
+      : `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="rgba(239,68,68,0.15)"/><path d="M5 5l4 4M9 5l-4 4" fill="none" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg><span style="color:#fca5a5;">${rule.label}</span>`;
+    container.appendChild(div);
+  });
+}
+
+// ─── Reset Form ───
+function resetForm() {
+  document.getElementById('relay-id').value = '';
+  document.getElementById('relay-type').value = '';
+  document.getElementById('setting-value').value = '';
+  document.getElementById('setting-unit').textContent = '--';
+  document.getElementById('op-time').value = '';
+  document.getElementById('ct-ratio').value = '';
+  document.getElementById('voltage-class').value = '';
+
+  document.getElementById('verify-placeholder').classList.remove('hidden');
+  document.getElementById('verify-steps').classList.add('hidden');
+  document.getElementById('verify-result').classList.add('hidden');
+  document.getElementById('verify-timestamp').textContent = '';
+
+  document.getElementById('anomaly-placeholder').classList.remove('hidden');
+  document.getElementById('anomaly-scores').classList.add('hidden');
+
+  document.getElementById('setting-point').style.display = 'none';
+
+  // Reset curves
+  ['curve-gcb101', 'curve-ocr201', 'curve-dfr301'].forEach(c => {
+    const el = document.getElementById(c);
+    el.setAttribute('stroke-width', '2');
+    el.setAttribute('opacity', '0.8');
+  });
+}
+
+// ─── History Table ───
+const historyData = [
+  { date: '2026-02-27 14:32:15', id: 'GCB-101A', type: '거리계전기', value: '1.2 Ω', time: '0.35s', ifScore: '0.72', result: 'pass', verifier: '김태영' },
+  { date: '2026-02-27 14:28:03', id: 'OCR-201B', type: '과전류계전기', value: '4.5 A', time: '0.50s', ifScore: '0.65', result: 'pass', verifier: '박수현' },
+  { date: '2026-02-27 13:55:41', id: 'DFR-301C', type: '차동계전기', value: '0.35 pu', time: '0.02s', ifScore: '0.81', result: 'pass', verifier: '이정호' },
+  { date: '2026-02-27 11:22:17', id: 'GCB-402D', type: '거리계전기', value: '0.65 Ω', time: '0.28s', ifScore: '-0.12', result: 'warn', verifier: '김태영' },
+  { date: '2026-02-27 11:15:08', id: 'OCR-503E', type: '과전류계전기', value: '8.2 A', time: '0.45s', ifScore: '-0.58', result: 'fail', verifier: '최민서' },
+  { date: '2026-02-27 10:48:32', id: 'GCB-101A', type: '거리계전기', value: '1.3 Ω', time: '0.38s', ifScore: '0.68', result: 'pass', verifier: '박수현' },
+  { date: '2026-02-26 16:42:19', id: 'OCR-201B', type: '과전류계전기', value: '5.1 A', time: '0.48s', ifScore: '0.59', result: 'pass', verifier: '이정호' },
+  { date: '2026-02-26 15:30:55', id: 'DFR-301C', type: '차동계전기', value: '0.52 pu', time: '0.03s', ifScore: '0.11', result: 'warn', verifier: '김태영' },
+  { date: '2026-02-26 14:18:03', id: 'GCB-402D', type: '거리계전기', value: '0.9 Ω', time: '0.30s', ifScore: '0.55', result: 'pass', verifier: '최민서' },
+  { date: '2026-02-26 11:05:47', id: 'OCR-503E', type: '과전류계전기', value: '7.8 A', time: '0.42s', ifScore: '-0.45', result: 'fail', verifier: '박수현' },
+  { date: '2026-02-26 09:52:31', id: 'GCB-101A', type: '거리계전기', value: '1.1 Ω', time: '0.33s', ifScore: '0.77', result: 'pass', verifier: '이정호' },
+  { date: '2026-02-25 17:33:22', id: 'OCR-201B', type: '과전류계전기', value: '3.2 A', time: '0.55s', ifScore: '0.43', result: 'pass', verifier: '김태영' },
+  { date: '2026-02-25 15:20:18', id: 'DFR-301C', type: '차동계전기', value: '0.18 pu', time: '0.02s', ifScore: '-0.22', result: 'warn', verifier: '최민서' },
+  { date: '2026-02-25 14:08:45', id: 'GCB-402D', type: '거리계전기', value: '1.4 Ω', time: '0.40s', ifScore: '0.38', result: 'pass', verifier: '박수현' },
+  { date: '2026-02-25 11:55:30', id: 'OCR-503E', type: '과전류계전기', value: '6.0 A', time: '0.50s', ifScore: '0.52', result: 'pass', verifier: '이정호' },
+  { date: '2026-02-24 16:40:12', id: 'GCB-101A', type: '거리계전기', value: '0.7 Ω', time: '0.25s', ifScore: '-0.31', result: 'warn', verifier: '김태영' },
+  { date: '2026-02-24 14:28:55', id: 'OCR-201B', type: '과전류계전기', value: '9.5 A', time: '0.38s', ifScore: '-0.67', result: 'fail', verifier: '최민서' },
+  { date: '2026-02-24 10:15:03', id: 'DFR-301C', type: '차동계전기', value: '0.30 pu', time: '0.02s', ifScore: '0.85', result: 'pass', verifier: '박수현' },
+];
+
+function renderHistory(filter) {
+  const tbody = document.getElementById('history-body');
+  tbody.innerHTML = '';
+  const filtered = filter === 'all' ? historyData : historyData.filter(h => h.result === filter);
+  document.getElementById('history-count').textContent = `총 ${filtered.length}건`;
+
+  filtered.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.style.animation = `fadeIn .3s ease-out ${i * 0.03}s both`;
+    const statusClass = row.result === 'pass' ? 'status-pass' : row.result === 'warn' ? 'status-warn' : 'status-fail';
+    const statusText = row.result === 'pass' ? '정상' : row.result === 'warn' ? '경고' : '오류';
+    const ifColor = parseFloat(row.ifScore) > 0.3 ? '#86efac' : parseFloat(row.ifScore) > -0.1 ? '#fde047' : '#fca5a5';
+
+    tr.innerHTML = `
+      <td class="text-slate-400 text-xs" style="white-space:nowrap;">${row.date}</td>
+      <td><span class="font-medium text-violet-300">${row.id}</span></td>
+      <td class="text-slate-400">${row.type}</td>
+      <td class="text-white font-medium">${row.value}</td>
+      <td class="text-slate-400">${row.time}</td>
+      <td><span style="color:${ifColor};font-weight:600;">${row.ifScore}</span></td>
+      <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+      <td class="text-slate-400">${row.verifier}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterHistory(filter) {
+  document.querySelectorAll('#history-filters .filter-chip').forEach(el => {
+    el.classList.toggle('active', el.dataset.filter === filter);
+  });
+  renderHistory(filter);
+}
+
+// ─── Batch Verification ───
+let batchUploaded = false;
+function startBatchUpload() {
+  if (batchUploaded) return;
+  const prog = document.getElementById('upload-progress');
+  prog.classList.remove('hidden');
+  const bar = document.getElementById('upload-bar');
+  const txt = document.getElementById('upload-status-text');
+
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct += Math.random() * 15 + 5;
+    if (pct >= 100) {
+      pct = 100;
+      clearInterval(interval);
+      txt.textContent = '분석 완료';
+      setTimeout(() => {
+        prog.classList.add('hidden');
+        document.getElementById('upload-complete').classList.remove('hidden');
+        document.getElementById('btn-batch-verify').disabled = false;
+        document.getElementById('batch-results').classList.remove('hidden');
+        document.getElementById('batch-placeholder').classList.add('hidden');
+        batchUploaded = true;
+        lucide.createIcons();
+      }, 400);
+    }
+    bar.style.width = pct + '%';
+  }, 200);
+}
+
+function runBatchVerification() {
+  if (!batchUploaded) return;
+  document.getElementById('btn-batch-verify').disabled = true;
+  document.getElementById('batch-summary').classList.add('hidden');
+
+  const relays = [
+    { result: 'pass', color: '#22c55e' },
+    { result: 'pass', color: '#22c55e' },
+    { result: 'pass', color: '#22c55e' },
+    { result: 'warn', color: '#eab308' },
+    { result: 'fail', color: '#ef4444' }
+  ];
+
+  relays.forEach((r, i) => {
+    document.getElementById(`batch-bar-${i}`).style.width = '0%';
+    document.getElementById(`batch-status-${i}`).textContent = '대기';
+    document.getElementById(`batch-status-${i}`).style.color = '#94a3b8';
+    document.getElementById(`batch-bar-${i}`).style.background = 'linear-gradient(90deg,#7c3aed,#a78bfa)';
+  });
+
+  relays.forEach((r, i) => {
+    const baseDelay = i * 800;
+    const duration = 1500 + Math.random() * 1000;
+
+    setTimeout(() => {
+      document.getElementById(`batch-status-${i}`).textContent = '검증 중...';
+      document.getElementById(`batch-status-${i}`).style.color = '#a78bfa';
+
+      let progress = 0;
+      const tick = setInterval(() => {
+        progress += Math.random() * 12 + 3;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(tick);
+          const statusEl = document.getElementById(`batch-status-${i}`);
+          const barEl = document.getElementById(`batch-bar-${i}`);
+
+          if (r.result === 'pass') {
+            statusEl.innerHTML = '<span class="status-badge status-pass" style="font-size:11px;">정상</span>';
+            barEl.style.background = 'linear-gradient(90deg,#22c55e,#4ade80)';
+          } else if (r.result === 'warn') {
+            statusEl.innerHTML = '<span class="status-badge status-warn" style="font-size:11px;">경고</span>';
+            barEl.style.background = 'linear-gradient(90deg,#eab308,#facc15)';
+          } else {
+            statusEl.innerHTML = '<span class="status-badge status-fail" style="font-size:11px;">오류</span>';
+            barEl.style.background = 'linear-gradient(90deg,#ef4444,#f87171)';
+          }
+        }
+        document.getElementById(`batch-bar-${i}`).style.width = Math.min(progress, 100) + '%';
+      }, duration / 10);
+    }, baseDelay);
+  });
+
+  // Show summary
+  setTimeout(() => {
+    document.getElementById('batch-summary').classList.remove('hidden');
+    document.getElementById('batch-summary').style.animation = 'fadeInUp .4s ease-out';
+    document.getElementById('btn-batch-verify').disabled = false;
+  }, relays.length * 800 + 2500);
+}
+
+// ─── Input change handler for chart ───
+document.getElementById('setting-value').addEventListener('input', () => {
+  const id = document.getElementById('relay-id').value;
+  if (id) updateChartPoint(relayDB[id]);
+});
+document.getElementById('op-time').addEventListener('input', () => {
+  const id = document.getElementById('relay-id').value;
+  if (id) updateChartPoint(relayDB[id]);
+});
+
+// ─── Initialize ───
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  renderHistory('all');
+});
+</script>
+
+</body>
+</html>

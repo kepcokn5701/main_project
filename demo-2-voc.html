@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOC 문의/답변 자동화 | AI 고객 응대 시스템</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] },
+      colors: {
+        dark: { 900: '#070b16', 800: '#0d1321', 700: '#131a2e', 600: '#1a2340', 500: '#212d52' },
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #070b16; color: #e2e8f0; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+  .inquiry-item { transition: all 0.2s ease; border-left: 3px solid transparent; }
+  .inquiry-item:hover { background: rgba(56, 189, 248, 0.05); }
+  .inquiry-item.active { background: rgba(56, 189, 248, 0.08); border-left-color: #38bdf8; }
+
+  .chat-bubble { animation: bubbleIn 0.3s ease-out; }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .typing-dot { animation: typingBounce 1.4s infinite ease-in-out; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  .confidence-ring { transition: stroke-dashoffset 1s ease; }
+
+  .stat-card { background: linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(139, 92, 246, 0.08) 100%); }
+
+  .star-btn { transition: all 0.15s ease; }
+  .star-btn:hover { transform: scale(1.2); }
+  .star-btn.filled { color: #fbbf24; }
+
+  .rag-result { transition: all 0.2s ease; }
+  .rag-result:hover { background: rgba(56, 189, 248, 0.06); }
+
+  .mode-toggle { position: relative; }
+  .mode-toggle input:checked + .toggle-slider { background: linear-gradient(135deg, #38bdf8, #8b5cf6); }
+  .mode-toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+  .toggle-slider { background: #334155; border-radius: 12px; width: 44px; height: 24px; transition: 0.3s; cursor: pointer; position: relative; display: block; }
+  .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: 0.3s; }
+
+  .pulse-badge { animation: pulse 2s infinite; }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); }
+    50% { box-shadow: 0 0 0 6px rgba(56, 189, 248, 0); }
+  }
+
+  .fade-in { animation: fadeIn 0.4s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .slide-in-right { animation: slideRight 0.3s ease; }
+  @keyframes slideRight {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .gauge-fill { transition: width 1s ease; }
+
+  .category-badge { font-size: 0.65rem; padding: 2px 8px; border-radius: 9999px; font-weight: 600; letter-spacing: 0.02em; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- Top Navigation -->
+<nav class="flex-shrink-0 border-b border-white/5 bg-dark-800/80 backdrop-blur-md" style="z-index:50;">
+  <div class="flex items-center justify-between px-5 py-3">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-sky-400 transition-colors text-sm">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+        <span>돌아가기</span>
+      </a>
+      <div class="w-px h-5 bg-white/10"></div>
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-500 to-violet-600 flex items-center justify-center">
+          <i data-lucide="message-square-reply" class="w-4 h-4 text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white leading-tight">VOC 문의/답변 자동화</h1>
+          <p class="text-[10px] text-slate-500 leading-tight">RAG 기반 지능형 고객 응대 시스템</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <!-- Mode Toggle -->
+      <div class="flex items-center gap-2.5 bg-dark-700 rounded-lg px-3 py-1.5">
+        <span id="modeLabel" class="text-xs font-medium text-sky-400">AI 자동 답변</span>
+        <label class="mode-toggle">
+          <input type="checkbox" id="modeToggle" class="sr-only" onchange="toggleMode()">
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="text-xs text-slate-500">담당자 검토</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-badge"></span>
+        <span class="text-xs text-emerald-400 font-medium">시스템 정상</span>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Statistics Bar -->
+<div class="flex-shrink-0 border-b border-white/5 bg-dark-800/50 px-5 py-2.5">
+  <div class="flex items-center gap-3">
+    <div class="stat-card flex items-center gap-2.5 px-4 py-2 rounded-lg border border-white/5 flex-1">
+      <div class="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+        <i data-lucide="inbox" class="w-4 h-4 text-sky-400"></i>
+      </div>
+      <div>
+        <p class="text-[10px] text-slate-500 font-medium">오늘 접수</p>
+        <p class="text-base font-bold text-white leading-tight" id="statTotal">147<span class="text-xs text-slate-500 font-normal ml-0.5">건</span></p>
+      </div>
+    </div>
+    <div class="stat-card flex items-center gap-2.5 px-4 py-2 rounded-lg border border-white/5 flex-1">
+      <div class="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+        <i data-lucide="cpu" class="w-4 h-4 text-violet-400"></i>
+      </div>
+      <div>
+        <p class="text-[10px] text-slate-500 font-medium">AI 처리</p>
+        <p class="text-base font-bold text-white leading-tight">132<span class="text-xs text-slate-500 font-normal ml-0.5">건</span> <span class="text-xs text-emerald-400 font-semibold">(89.8%)</span></p>
+      </div>
+    </div>
+    <div class="stat-card flex items-center gap-2.5 px-4 py-2 rounded-lg border border-white/5 flex-1">
+      <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+        <i data-lucide="timer" class="w-4 h-4 text-amber-400"></i>
+      </div>
+      <div>
+        <p class="text-[10px] text-slate-500 font-medium">평균 응답 시간</p>
+        <p class="text-base font-bold text-white leading-tight">2.3<span class="text-xs text-slate-500 font-normal ml-0.5">초</span></p>
+      </div>
+    </div>
+    <div class="stat-card flex items-center gap-2.5 px-4 py-2 rounded-lg border border-white/5 flex-1">
+      <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+        <i data-lucide="star" class="w-4 h-4 text-emerald-400"></i>
+      </div>
+      <div>
+        <p class="text-[10px] text-slate-500 font-medium">고객 만족도</p>
+        <p class="text-base font-bold text-white leading-tight">4.6<span class="text-xs text-slate-500 font-normal ml-0.5">/5.0</span></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content Area -->
+<div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 120px);">
+
+  <!-- Left Sidebar: Inquiry List -->
+  <div class="w-80 flex-shrink-0 border-r border-white/5 bg-dark-800/40 flex flex-col">
+    <div class="px-4 py-3 border-b border-white/5">
+      <div class="flex items-center justify-between mb-2.5">
+        <h2 class="text-sm font-bold text-white">접수 문의</h2>
+        <span class="text-[10px] bg-sky-500/20 text-sky-400 font-bold px-2 py-0.5 rounded-full">12건 대기</span>
+      </div>
+      <div class="relative">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+        <input type="text" placeholder="문의 검색..." class="w-full bg-dark-700 border border-white/5 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 transition-colors">
+      </div>
+    </div>
+    <div class="flex-1 overflow-y-auto" id="inquiryList">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- Center: Chat Area -->
+  <div class="flex-1 flex flex-col bg-dark-900/50 min-w-0">
+    <!-- Chat Header -->
+    <div class="flex-shrink-0 px-5 py-3 border-b border-white/5 bg-dark-800/30 flex items-center justify-between">
+      <div class="flex items-center gap-3" id="chatHeader">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm" id="chatAvatar">김</div>
+        <div>
+          <p class="text-sm font-semibold text-white" id="chatName">김민수</p>
+          <p class="text-[10px] text-slate-500" id="chatMeta">고객번호: 2024-88721 · 주거용 · 서울 강남구</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] bg-emerald-500/15 text-emerald-400 px-2.5 py-1 rounded-full font-medium" id="chatStatus">AI 응답 완료</span>
+      </div>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="flex-1 overflow-y-auto px-5 py-4 space-y-4" id="chatMessages">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Chat Input -->
+    <div class="flex-shrink-0 px-5 py-3 border-t border-white/5 bg-dark-800/30">
+      <div class="flex items-end gap-3">
+        <div class="flex-1 relative">
+          <textarea id="chatInput" rows="1" placeholder="답변을 입력하세요..." class="w-full bg-dark-700 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500/50 resize-none transition-colors" onkeydown="handleChatKeydown(event)" oninput="autoResize(this)"></textarea>
+        </div>
+        <button onclick="sendMessage()" class="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-r from-sky-500 to-violet-600 flex items-center justify-center hover:opacity-90 transition-opacity">
+          <i data-lucide="send" class="w-4 h-4 text-white"></i>
+        </button>
+      </div>
+      <div class="flex items-center gap-3 mt-2">
+        <button class="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+          <i data-lucide="paperclip" class="w-3 h-3"></i> 파일 첨부
+        </button>
+        <button class="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+          <i data-lucide="image" class="w-3 h-3"></i> 이미지
+        </button>
+        <button class="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+          <i data-lucide="file-text" class="w-3 h-3"></i> 템플릿
+        </button>
+        <div class="ml-auto text-[10px] text-slate-600" id="inputHint">Enter로 전송 · Shift+Enter로 줄바꿈</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel: AI Analysis -->
+  <div class="w-80 flex-shrink-0 border-l border-white/5 bg-dark-800/40 flex flex-col overflow-y-auto" id="analysisPanel">
+    <!-- Populated by JS -->
+  </div>
+
+</div>
+
+<script>
+// ===================== DATA =====================
+const inquiries = [
+  {
+    id: 1,
+    name: '김민수',
+    avatar: '김',
+    avatarColor: 'from-sky-400 to-blue-600',
+    customerId: '2024-88721',
+    type: '주거용',
+    location: '서울 강남구',
+    category: '요금문의',
+    categoryColor: 'bg-amber-500/15 text-amber-400',
+    preview: '전기요금이 갑자기 2배로 올랐어요',
+    time: '2분 전',
+    unread: true,
+    confidence: 94,
+    messages: [
+      { role: 'customer', text: '안녕하세요, 이번 달 전기요금이 갑자기 2배로 올랐어요. 지난 달에는 45,000원 정도 나왔는데 이번 달에 92,000원이 청구됐습니다. 사용량이 크게 달라진 것 같지 않은데 왜 이런 건가요?', time: '14:23' },
+      { role: 'ai', text: '안녕하세요, 김민수 고객님. 전기요금 관련 문의 주셔서 감사합니다.\n\n조회 결과, 이번 달 사용량이 전월 대비 약 45% 증가한 것으로 확인됩니다. 주요 원인은 다음과 같습니다:\n\n1. **누진제 구간 상승**: 사용량 200kWh 초과로 2구간→3구간으로 변경되어 단가가 약 1.8배 상승했습니다.\n2. **하절기 계절 요금**: 7~8월 냉방 수요 증가에 따른 계절별 요금 체계가 적용되었습니다.\n3. **사용량 변화**: 전월 287kWh → 금월 416kWh로 증가했습니다.\n\n💡 **요금 절감 방안:**\n- 에너지 효율 1등급 가전 사용\n- 냉방 적정 온도 26°C 유지\n- 대기전력 차단 콘센트 활용\n\n추가 문의사항이 있으시면 말씀해 주세요.', time: '14:23', rating: 0 }
+    ],
+    ragResults: [
+      { title: '누진제 요금 상승 관련 안내 사례', score: 96.2, date: '2024.11.15' },
+      { title: '하절기 요금 폭등 민원 처리 건', score: 93.8, date: '2024.08.22' },
+      { title: '전기요금 납부 관련 FAQ 응답', score: 89.4, date: '2024.10.03' }
+    ],
+    suggestedResponse: '고객님의 이번 달 요금 상승은 누진제 구간 변경과 하절기 계절 요금 적용이 주요 원인입니다. 상세한 요금 명세서를 이메일로 발송해 드리겠습니다.'
+  },
+  {
+    id: 2,
+    name: '이영희',
+    avatar: '이',
+    avatarColor: 'from-rose-400 to-pink-600',
+    customerId: '2024-55234',
+    type: '주거용',
+    location: '경기 수원시',
+    category: '정전',
+    categoryColor: 'bg-red-500/15 text-red-400',
+    preview: '정전이 발생했는데 언제 복구되나요?',
+    time: '8분 전',
+    unread: true,
+    confidence: 91,
+    messages: [
+      { role: 'customer', text: '지금 집에 정전이 발생했습니다. 아파트 전체가 다 정전인 것 같은데 언제 복구되나요? 냉장고에 음식도 많고 너무 걱정됩니다.', time: '14:15' },
+      { role: 'ai', text: '이영희 고객님, 불편을 드려 대단히 죄송합니다.\n\n현재 경기 수원시 영통구 일대에서 **배전선로 고장**으로 인한 정전이 발생한 것으로 확인됩니다.\n\n📋 **정전 현황:**\n- 발생 시각: 오늘 14:08\n- 영향 지역: 수원시 영통구 매탄동 일대 (약 2,300세대)\n- 원인: 지중 배전케이블 사고\n- 복구 예상: **16:00 이전 복구 목표**\n\n⚡ **복구 진행 상황:**\n- 현재 복구팀 2개 조가 현장에 출동하여 작업 중입니다.\n- 긴급 발전차량 1대가 배치되어 우선 복구를 진행하고 있습니다.\n\n🔔 복구 완료 시 SMS로 안내해 드리겠습니다. 정전으로 인한 식품 피해가 발생한 경우, 복구 후 고객센터(123)로 피해 접수를 하시면 보상 절차를 안내해 드리겠습니다.', time: '14:15', rating: 0 }
+    ],
+    ragResults: [
+      { title: '배전선로 정전 복구 안내 사례', score: 95.1, date: '2024.12.01' },
+      { title: '아파트 단지 정전 복구 절차', score: 92.7, date: '2024.09.18' },
+      { title: '정전 피해 보상 안내 가이드', score: 88.3, date: '2024.11.20' }
+    ],
+    suggestedResponse: '현재 수원시 영통구 일대 배전선로 사고로 정전이 발생했으며, 복구팀이 현장에서 작업 중입니다. 16시 이전 복구를 목표로 하고 있습니다.'
+  },
+  {
+    id: 3,
+    name: '박준호',
+    avatar: '박',
+    avatarColor: 'from-emerald-400 to-teal-600',
+    customerId: '2024-31098',
+    type: '산업용',
+    location: '충남 아산시',
+    category: '신재생',
+    categoryColor: 'bg-emerald-500/15 text-emerald-400',
+    preview: '태양광 발전 연계 신청하고 싶습니다',
+    time: '15분 전',
+    unread: false,
+    confidence: 97,
+    messages: [
+      { role: 'customer', text: '공장 옥상에 태양광 패널을 설치했는데, 한전 계통 연계 신청을 하고 싶습니다. 용량은 50kW이고 필요한 서류와 절차를 알려주세요.', time: '14:08' },
+      { role: 'ai', text: '박준호 고객님, 태양광 발전 계통연계 신청 관련 안내드리겠습니다.\n\n📑 **50kW 태양광 계통연계 신청 절차:**\n\n**1단계: 발전사업 허가 (산업통상자원부)**\n- 1MW 미만이므로 시·군·구청 허가 대상\n- 소요기간: 약 2~3주\n\n**2단계: 계통연계 기술검토 신청**\n- 전력거래소 → 한국전력 배전센터\n- 필요 서류:\n  ① 계통연계 신청서\n  ② 발전설비 사양서 (인버터, 패널 스펙)\n  ③ 전기안전관리자 선임 계약서\n  ④ 단선결선도 및 배치도\n  ⑤ 사업자등록증 사본\n\n**3단계: 배전계통 영향평가**\n- 계통 연계 가능 여부 검토 (약 14영업일)\n\n**4단계: 공사 및 준공검사**\n- 연계용 전용 계량기 설치\n- 한전 준공검사 → 상업운전 개시\n\n💡 총 소요기간: 약 **2~3개월**\n\n온라인 신청: 한국전력 분산전원 포탈(https://dp.kepco.co.kr)\n\n추가 문의사항이 있으시면 말씀해 주세요.', time: '14:09', rating: 0 }
+    ],
+    ragResults: [
+      { title: '소규모 태양광 계통연계 절차 안내', score: 97.8, date: '2024.10.12' },
+      { title: '50kW급 태양광 연계 신청 사례', score: 94.5, date: '2024.11.08' },
+      { title: '분산전원 계통연계 기술기준', score: 91.2, date: '2024.07.25' }
+    ],
+    suggestedResponse: '50kW 태양광 발전 계통연계 신청을 위해서는 발전사업 허가 → 기술검토 → 영향평가 → 준공검사 절차를 거치시면 됩니다.'
+  },
+  {
+    id: 4,
+    name: '최서연',
+    avatar: '최',
+    avatarColor: 'from-violet-400 to-purple-600',
+    customerId: '2024-67412',
+    type: '주거용',
+    location: '부산 해운대구',
+    category: '검침',
+    categoryColor: 'bg-violet-500/15 text-violet-400',
+    preview: '계량기 고장 같은데 확인 부탁드립니다',
+    time: '23분 전',
+    unread: false,
+    confidence: 88,
+    messages: [
+      { role: 'customer', text: '계량기 숫자가 안 돌아가는 것 같아요. 한 달째 거의 같은 숫자를 가리키고 있는데 전기는 정상적으로 사용하고 있거든요. 고장인지 확인해주세요.', time: '14:00' },
+      { role: 'ai', text: '최서연 고객님, 계량기 이상 관련 문의 감사합니다.\n\n말씀하신 증상을 확인해 보겠습니다.\n\n🔍 **원격 검침 데이터 확인 결과:**\n- 계량기 번호: BN-2024-67412\n- 최근 30일 검침값 변동: 거의 없음 (±2kWh)\n- 정상 사용 패턴 대비 현저히 낮은 수치\n\n⚠️ **계량기 고장 가능성이 높은 상황**으로 판단됩니다.\n\n📋 **조치 계획:**\n1. **현장 점검 접수 완료** - 접수번호: VOC-2024-12847\n2. **방문 예정일: 2영업일 이내** (정확한 일정은 SMS로 안내)\n3. 점검 항목:\n   - 계량기 외관 및 단자 상태\n   - CT(변류기) 결선 확인\n   - 정밀도 시험\n4. **고장 확인 시:** 즉시 신규 계량기로 교체 (무상)\n5. **요금 정산:** 고장 기간 추정 사용량으로 소급 정산\n\n방문 시 댁내 출입이 필요할 수 있으니, 연락 가능한 시간대를 알려주시면 감사하겠습니다.', time: '14:01', rating: 0 }
+    ],
+    ragResults: [
+      { title: '계량기 고장 신고 처리 사례', score: 93.4, date: '2024.11.30' },
+      { title: '원격검침 이상 데이터 분석', score: 90.1, date: '2024.10.15' },
+      { title: '계량기 교체 및 정산 기준', score: 87.6, date: '2024.09.05' }
+    ],
+    suggestedResponse: '원격 검침 데이터 확인 결과 계량기 이상이 의심되어, 2영업일 이내 현장 점검을 접수하였습니다. 고장 확인 시 무상 교체해 드리겠습니다.'
+  },
+  {
+    id: 5,
+    name: '정하늘',
+    avatar: '정',
+    avatarColor: 'from-orange-400 to-red-600',
+    customerId: '2024-43289',
+    type: '주거용',
+    location: '대전 유성구',
+    category: '안전',
+    categoryColor: 'bg-red-500/15 text-red-400',
+    preview: '전기 누전이 의심됩니다',
+    time: '31분 전',
+    unread: false,
+    confidence: 96,
+    messages: [
+      { role: 'customer', text: '요즘 집에서 벽을 만지면 살짝 전기가 오는 느낌이 있어요. 그리고 차단기가 자꾸 내려가는데 누전이 의심됩니다. 위험한 건 아닌지 걱정됩니다.', time: '13:52' },
+      { role: 'ai', text: '정하늘 고객님, 누전 의심 증상은 **안전과 직결되는 긴급 사안**입니다.\n\n🚨 **즉시 조치 사항 (중요):**\n1. 해당 구역의 **차단기를 내린 상태로 유지**해 주세요\n2. 벽이나 금속 부분에 **접촉을 삼가**해 주세요\n3. 젖은 손으로 전기기기 조작 절대 금지\n\n🔌 **누전 의심 증상 분석:**\n- ✅ 벽면 미세 전류 감지 → 벽체 내부 배선 절연 열화 가능성\n- ✅ 누전차단기(ELB) 반복 트립 → 누설 전류 30mA 이상 의심\n\n📋 **긴급 조치 계획:**\n1. **긴급 안전점검 접수 완료** - 접수번호: SF-2024-05891\n2. **금일 중 긴급 출동** (안전 사안이므로 우선 배정)\n3. 점검 내용:\n   - 절연저항 측정 (메거 테스트)\n   - 누전차단기 동작 시험\n   - 접지 상태 확인\n   - 노후 배선 확인\n4. **점검 비용: 무상** (한전 안전점검 서비스)\n\n⚠️ 점검 전까지 해당 회로 사용을 **자제**해 주시기 바랍니다.\n\n긴급 상황 발생 시 **한전 안전센터 123**으로 즉시 연락해 주세요.', time: '13:53', rating: 0 }
+    ],
+    ragResults: [
+      { title: '누전 긴급 안전점검 처리 사례', score: 96.7, date: '2024.12.05' },
+      { title: '가정용 누전차단기 트립 원인 분석', score: 94.2, date: '2024.11.10' },
+      { title: '옥내배선 절연열화 점검 가이드', score: 91.8, date: '2024.08.14' }
+    ],
+    suggestedResponse: '누전 의심 증상이 확인되어 금일 중 긴급 안전점검팀을 배정하였습니다. 점검 전까지 해당 회로 사용을 자제해 주시기 바랍니다.'
+  }
+];
+
+// AI mock responses for custom messages
+const aiResponses = [
+  { keywords: ['요금', '비싸', '청구', '납부', '많이'], response: '고객님의 요금 관련 문의를 확인하였습니다.\n\n현재 적용 중인 요금제와 최근 3개월 사용량 추이를 분석한 결과, 요금 변동의 주요 원인을 파악하였습니다.\n\n📊 상세한 요금 분석 결과를 안내드리겠습니다:\n- 현재 요금제: 주택용(저압)\n- 최적 요금제 추천 시스템을 통해 절감 가능 금액을 산출 중입니다.\n\n추가 문의사항이 있으시면 말씀해 주세요.' },
+  { keywords: ['정전', '전기', '안들어', '복구'], response: '정전 관련 문의를 접수하였습니다.\n\n현재 해당 지역의 배전망 상태를 실시간으로 확인하고 있습니다.\n\n⚡ 복구 현황:\n- 현장 상황 파악 중\n- 복구팀 배정 확인 중\n\n정확한 복구 예상 시간이 확인되는 대로 SMS로 안내해 드리겠습니다.' },
+  { keywords: ['태양광', '발전', '연계', '신재생', '설치'], response: '신재생에너지 관련 문의 감사합니다.\n\n태양광 발전 계통연계에 필요한 절차와 서류를 안내해 드리겠습니다.\n\n📑 주요 절차:\n1. 발전사업 허가 신청\n2. 계통연계 기술검토\n3. 공사 및 준공검사\n\n세부 사항은 담당 부서와 연결하여 맞춤 안내를 드리겠습니다.' },
+  { keywords: ['계량기', '검침', '고장', '숫자'], response: '계량기 관련 문의를 접수하였습니다.\n\n원격 검침 시스템을 통해 해당 계량기의 데이터를 확인하고 있습니다.\n\n🔍 확인 사항:\n- 계량기 상태 원격 진단 중\n- 이상 확인 시 현장 점검 자동 접수\n\n점검 결과를 빠른 시일 내에 안내해 드리겠습니다.' },
+  { keywords: ['누전', '감전', '차단기', '안전', '위험'], response: '⚠️ 안전 관련 긴급 문의로 분류되었습니다.\n\n즉시 조치사항:\n1. 해당 구역 차단기를 내려주세요\n2. 전기기기 접촉을 삼가해 주세요\n\n🚨 긴급 안전점검팀 배정을 요청하였습니다.\n긴급 상황 시 한전 안전센터 123으로 연락해 주세요.' }
+];
+
+const defaultResponse = '고객님의 문의를 접수하였습니다.\n\nAI 시스템이 문의 내용을 분석하여 최적의 답변을 준비하고 있습니다.\n\n📋 접수 현황:\n- 문의 유형: 자동 분류 중\n- 예상 처리 시간: 즉시\n- 담당 부서: 자동 배정 중\n\n정확한 답변을 위해 추가 정보가 필요할 수 있습니다. 감사합니다.';
+
+// ===================== STATE =====================
+let activeInquiryId = 1;
+let isAutoMode = true;
+let isTyping = false;
+
+// ===================== RENDER FUNCTIONS =====================
+
+function renderInquiryList() {
+  const list = document.getElementById('inquiryList');
+  list.innerHTML = inquiries.map(inq => `
+    <div class="inquiry-item px-4 py-3 cursor-pointer ${inq.id === activeInquiryId ? 'active' : ''}" onclick="selectInquiry(${inq.id})">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br ${inq.avatarColor} flex items-center justify-center text-white font-bold text-sm flex-shrink-0 relative">
+          ${inq.avatar}
+          ${inq.unread ? '<span class="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-sky-400 rounded-full border-2 border-dark-800"></span>' : ''}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center justify-between mb-0.5">
+            <span class="text-xs font-semibold text-white">${inq.name}</span>
+            <span class="text-[10px] text-slate-500">${inq.time}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 truncate mb-1.5">${inq.preview}</p>
+          <span class="category-badge ${inq.categoryColor}">${inq.category}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderChatMessages() {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = '';
+
+  inq.messages.forEach((msg, idx) => {
+    if (msg.role === 'customer') {
+      container.innerHTML += createCustomerBubble(msg);
+    } else if (msg.role === 'ai') {
+      container.innerHTML += createAiBubble(msg, idx);
+    } else if (msg.role === 'user') {
+      container.innerHTML += createUserBubble(msg);
+    }
+  });
+
+  // scroll to bottom
+  setTimeout(() => { container.scrollTop = container.scrollHeight; }, 50);
+  lucide.createIcons();
+}
+
+function createCustomerBubble(msg) {
+  return `
+    <div class="chat-bubble flex justify-start">
+      <div class="max-w-lg">
+        <div class="bg-dark-600 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3">
+          <p class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">${msg.text}</p>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-1 ml-1">${msg.time}</p>
+      </div>
+    </div>
+  `;
+}
+
+function createAiBubble(msg, idx) {
+  const ratingHtml = createRatingStars(msg, idx);
+  return `
+    <div class="chat-bubble flex justify-end">
+      <div class="max-w-lg">
+        <div class="bg-gradient-to-br from-sky-900/30 to-violet-900/30 border border-sky-500/10 rounded-2xl rounded-tr-sm px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-2">
+            <i data-lucide="bot" class="w-3.5 h-3.5 text-sky-400"></i>
+            <span class="text-[10px] font-semibold text-sky-400">AI 자동 응답</span>
+          </div>
+          <div class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">${formatMessageText(msg.text)}</div>
+        </div>
+        <div class="flex items-center justify-end gap-3 mt-1.5">
+          <div class="flex items-center gap-0.5" id="rating-${activeInquiryId}-${idx}">
+            ${ratingHtml}
+          </div>
+          <p class="text-[10px] text-slate-600">${msg.time}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createUserBubble(msg) {
+  return `
+    <div class="chat-bubble flex justify-end">
+      <div class="max-w-lg">
+        <div class="bg-gradient-to-br from-violet-600/30 to-purple-700/30 border border-violet-500/15 rounded-2xl rounded-tr-sm px-4 py-3">
+          <div class="flex items-center gap-1.5 mb-2">
+            <i data-lucide="user" class="w-3.5 h-3.5 text-violet-400"></i>
+            <span class="text-[10px] font-semibold text-violet-400">담당자 답변</span>
+          </div>
+          <p class="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">${msg.text}</p>
+        </div>
+        <p class="text-[10px] text-slate-600 mt-1 text-right">${msg.time}</p>
+      </div>
+    </div>
+  `;
+}
+
+function createRatingStars(msg, idx) {
+  let html = '<span class="text-[10px] text-slate-600 mr-1">답변 품질</span>';
+  for (let s = 1; s <= 5; s++) {
+    const filled = msg.rating >= s ? 'filled' : '';
+    html += `<button class="star-btn ${filled}" onclick="rateMessage(${idx}, ${s})" style="background:none;border:none;cursor:pointer;padding:0;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="${msg.rating >= s ? '#fbbf24' : 'none'}" stroke="${msg.rating >= s ? '#fbbf24' : '#475569'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </button>`;
+  }
+  return html;
+}
+
+function formatMessageText(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
+}
+
+function renderAnalysisPanel() {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+
+  const panel = document.getElementById('analysisPanel');
+  const circumference = 2 * Math.PI * 36;
+  const offset = circumference - (inq.confidence / 100) * circumference;
+
+  let confidenceColor = '#38bdf8';
+  if (inq.confidence >= 95) confidenceColor = '#34d399';
+  else if (inq.confidence >= 90) confidenceColor = '#38bdf8';
+  else if (inq.confidence >= 85) confidenceColor = '#fbbf24';
+
+  panel.innerHTML = `
+    <div class="p-4 space-y-4 slide-in-right">
+      <!-- Category Classification -->
+      <div>
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">AI 분석 결과</h3>
+        <div class="bg-dark-700 rounded-xl border border-white/5 p-3.5">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs text-slate-400">자동 분류</span>
+            <span class="category-badge ${inq.categoryColor} text-xs px-3 py-1">${inq.category}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-slate-400">고객 유형</span>
+            <span class="text-xs text-white font-medium">${inq.type}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Confidence Score -->
+      <div>
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">답변 신뢰도</h3>
+        <div class="bg-dark-700 rounded-xl border border-white/5 p-4 flex items-center gap-4">
+          <div class="relative flex-shrink-0">
+            <svg width="84" height="84" viewBox="0 0 84 84">
+              <circle cx="42" cy="42" r="36" stroke="#1e293b" stroke-width="6" fill="none"/>
+              <circle cx="42" cy="42" r="36" stroke="${confidenceColor}" stroke-width="6" fill="none"
+                stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+                stroke-linecap="round" transform="rotate(-90 42 42)" class="confidence-ring"/>
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center">
+              <span class="text-lg font-bold text-white">${inq.confidence}%</span>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs font-semibold text-white mb-1">
+              ${inq.confidence >= 95 ? '매우 높음' : inq.confidence >= 90 ? '높음' : '보통'}
+            </p>
+            <p class="text-[10px] text-slate-500 leading-relaxed">RAG 검색 기반 응답 품질 평가 점수입니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- RAG Results -->
+      <div>
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">RAG 검색 결과</h3>
+        <div class="bg-dark-700 rounded-xl border border-white/5 overflow-hidden">
+          <div class="px-3.5 py-2.5 border-b border-white/5 flex items-center gap-2">
+            <i data-lucide="database" class="w-3.5 h-3.5 text-sky-400"></i>
+            <span class="text-[11px] font-semibold text-sky-400">유사 과거 답변 3건 발견</span>
+          </div>
+          ${inq.ragResults.map((r, i) => `
+            <div class="rag-result px-3.5 py-2.5 ${i < inq.ragResults.length - 1 ? 'border-b border-white/5' : ''} cursor-pointer">
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-[11px] text-slate-300 font-medium leading-snug">${r.title}</p>
+                <span class="text-[10px] font-bold ${r.score >= 95 ? 'text-emerald-400' : r.score >= 90 ? 'text-sky-400' : 'text-amber-400'} flex-shrink-0">${r.score}%</span>
+              </div>
+              <p class="text-[10px] text-slate-600 mt-1">${r.date}</p>
+              <div class="mt-1.5 h-1 bg-dark-600 rounded-full overflow-hidden">
+                <div class="h-full rounded-full gauge-fill ${r.score >= 95 ? 'bg-emerald-500' : r.score >= 90 ? 'bg-sky-500' : 'bg-amber-500'}" style="width: ${r.score}%"></div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Suggested Response Actions -->
+      <div>
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">추천 답변</h3>
+        <div class="bg-dark-700 rounded-xl border border-white/5 p-3.5">
+          <p class="text-[11px] text-slate-300 leading-relaxed mb-3">${inq.suggestedResponse}</p>
+          <div class="flex gap-2">
+            <button onclick="adoptResponse()" class="flex-1 py-2 rounded-lg bg-gradient-to-r from-sky-500 to-violet-600 text-white text-xs font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              답변 채택
+            </button>
+            <button onclick="editResponse()" class="flex-1 py-2 rounded-lg border border-white/10 text-slate-300 text-xs font-medium hover:bg-white/5 transition-colors flex items-center justify-center gap-1.5">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+              수정 후 발송
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer Info -->
+      <div>
+        <h3 class="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">고객 정보</h3>
+        <div class="bg-dark-700 rounded-xl border border-white/5 p-3.5 space-y-2">
+          <div class="flex justify-between">
+            <span class="text-[11px] text-slate-500">고객명</span>
+            <span class="text-[11px] text-white font-medium">${inq.name}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[11px] text-slate-500">고객번호</span>
+            <span class="text-[11px] text-white font-medium">${inq.customerId}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[11px] text-slate-500">계약 유형</span>
+            <span class="text-[11px] text-white font-medium">${inq.type}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-[11px] text-slate-500">지역</span>
+            <span class="text-[11px] text-white font-medium">${inq.location}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  lucide.createIcons();
+}
+
+function updateChatHeader() {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+  document.getElementById('chatAvatar').textContent = inq.avatar;
+  document.getElementById('chatAvatar').className = `w-9 h-9 rounded-full bg-gradient-to-br ${inq.avatarColor} flex items-center justify-center text-white font-bold text-sm`;
+  document.getElementById('chatName').textContent = inq.name;
+  document.getElementById('chatMeta').textContent = `고객번호: ${inq.customerId} · ${inq.type} · ${inq.location}`;
+}
+
+// ===================== INTERACTIONS =====================
+
+function selectInquiry(id) {
+  activeInquiryId = id;
+  renderInquiryList();
+  renderChatMessages();
+  renderAnalysisPanel();
+  updateChatHeader();
+}
+
+function toggleMode() {
+  isAutoMode = !document.getElementById('modeToggle').checked;
+  const label = document.getElementById('modeLabel');
+  if (isAutoMode) {
+    label.textContent = 'AI 자동 답변';
+    label.className = 'text-xs font-medium text-sky-400';
+    document.getElementById('inputHint').textContent = 'Enter로 전송 · Shift+Enter로 줄바꿈';
+  } else {
+    label.textContent = '담당자 검토';
+    label.className = 'text-xs font-medium text-violet-400';
+    document.getElementById('inputHint').textContent = '담당자 검토 모드 · 답변 전 확인 필요';
+  }
+}
+
+function handleChatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || isTyping) return;
+
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+
+  const now = new Date();
+  const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+  // Determine if it's a customer message or agent reply
+  // For demo: treat input as customer question, then AI responds
+  inq.messages.push({ role: 'customer', text: text, time: timeStr });
+
+  input.value = '';
+  input.style.height = 'auto';
+  renderChatMessages();
+
+  // Show typing indicator, then AI response
+  isTyping = true;
+  showTypingIndicator();
+
+  const delay = 1200 + Math.random() * 1200;
+  setTimeout(() => {
+    removeTypingIndicator();
+    const aiText = generateAIResponse(text);
+    inq.messages.push({ role: isAutoMode ? 'ai' : 'user', text: aiText, time: timeStr, rating: 0 });
+    isTyping = false;
+    renderChatMessages();
+  }, delay);
+}
+
+function generateAIResponse(input) {
+  const lowerInput = input.toLowerCase();
+  for (const resp of aiResponses) {
+    if (resp.keywords.some(kw => lowerInput.includes(kw))) {
+      return resp.response;
+    }
+  }
+  return defaultResponse;
+}
+
+function showTypingIndicator() {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.id = 'typingIndicator';
+  div.className = 'chat-bubble flex justify-end';
+  div.innerHTML = `
+    <div class="max-w-lg">
+      <div class="bg-gradient-to-br from-sky-900/30 to-violet-900/30 border border-sky-500/10 rounded-2xl rounded-tr-sm px-5 py-4">
+        <div class="flex items-center gap-1.5 mb-2">
+          <i data-lucide="bot" class="w-3.5 h-3.5 text-sky-400"></i>
+          <span class="text-[10px] font-semibold text-sky-400">AI 답변 생성 중...</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="typing-dot w-2 h-2 rounded-full bg-sky-400 inline-block"></span>
+          <span class="typing-dot w-2 h-2 rounded-full bg-sky-400 inline-block"></span>
+          <span class="typing-dot w-2 h-2 rounded-full bg-sky-400 inline-block"></span>
+        </div>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  lucide.createIcons();
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function rateMessage(msgIdx, stars) {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq || !inq.messages[msgIdx]) return;
+  inq.messages[msgIdx].rating = stars;
+  renderChatMessages();
+}
+
+function adoptResponse() {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+
+  const btn = event.target.closest('button');
+  btn.innerHTML = '<svg class="w-3.5 h-3.5 inline mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 채택 완료';
+  btn.classList.remove('from-sky-500', 'to-violet-600');
+  btn.classList.add('bg-emerald-600');
+  btn.disabled = true;
+
+  // Update the status badge
+  document.getElementById('chatStatus').textContent = '답변 발송 완료';
+  document.getElementById('chatStatus').className = 'text-[10px] bg-emerald-500/15 text-emerald-400 px-2.5 py-1 rounded-full font-medium';
+}
+
+function editResponse() {
+  const inq = inquiries.find(i => i.id === activeInquiryId);
+  if (!inq) return;
+
+  const input = document.getElementById('chatInput');
+  input.value = inq.suggestedResponse;
+  input.focus();
+  autoResize(input);
+}
+
+// ===================== INIT =====================
+function init() {
+  renderInquiryList();
+  renderChatMessages();
+  renderAnalysisPanel();
+  updateChatHeader();
+  lucide.createIcons();
+
+  // Animate gauge bars after load
+  setTimeout(() => {
+    document.querySelectorAll('.gauge-fill').forEach(el => {
+      el.style.width = el.style.width; // trigger repaint
+    });
+  }, 100);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

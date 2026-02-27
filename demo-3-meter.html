@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>검침값 예측 (LP 데이터) - AI 기반 전력 사용량 분석</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] },
+      colors: {
+        dark: { 900: '#070b16', 800: '#0d1321', 700: '#141c2e', 600: '#1a2540', 500: '#243052' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { font-family: 'Noto Sans KR', sans-serif; }
+  body { background: #070b16; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0d1321; }
+  ::-webkit-scrollbar-thumb { background: #243052; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #34d399; }
+
+  .glass { background: rgba(13, 19, 33, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(36, 48, 82, 0.5); }
+  .glass-hover:hover { background: rgba(20, 28, 46, 0.9); border-color: rgba(52, 211, 153, 0.3); }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes pulse-glow { 0%, 100% { box-shadow: 0 0 5px rgba(52, 211, 153, 0.3); } 50% { box-shadow: 0 0 20px rgba(52, 211, 153, 0.6); } }
+  @keyframes drawLine { from { stroke-dashoffset: 2000; } to { stroke-dashoffset: 0; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100%); } }
+
+  .fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+  .slide-in-right { animation: slideInRight 0.4s ease-out forwards; }
+  .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+  .toast-anim { animation: toast-in 0.4s ease-out forwards; }
+
+  .draw-line { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: drawLine 1.5s ease-out forwards; }
+  .draw-line-delayed { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: drawLine 1.5s ease-out 0.5s forwards; }
+
+  .prediction-running .scanline-overlay {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+  }
+  .prediction-running .scanline-overlay::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, #34d399, transparent);
+    animation: scanline 1.2s ease-in-out infinite;
+  }
+
+  .chart-tooltip {
+    pointer-events: none; position: absolute; z-index: 50;
+    background: rgba(7, 11, 22, 0.95); border: 1px solid rgba(52, 211, 153, 0.4);
+    border-radius: 8px; padding: 10px 14px; font-size: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    transition: opacity 0.15s ease;
+  }
+
+  .customer-card { transition: all 0.2s ease; cursor: pointer; }
+  .customer-card:hover { transform: translateY(-2px); border-color: rgba(52, 211, 153, 0.5); }
+  .customer-card.selected { border-color: #34d399; background: rgba(52, 211, 153, 0.08); }
+
+  .kpi-card { transition: all 0.3s ease; }
+  .kpi-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.3); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #059669, #0d9488);
+    transition: all 0.2s ease;
+  }
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #047857, #0f766e);
+    box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .status-normal { background: rgba(52, 211, 153, 0.15); color: #6ee7b7; }
+  .status-missing { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+  .status-predicted { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+  .status-error { background: rgba(248, 113, 113, 0.15); color: #f87171; }
+
+  .billing-bar { transition: width 0.8s ease-out; }
+
+  .confidence-band { opacity: 0; transition: opacity 0.5s ease; }
+  .confidence-band.visible { opacity: 1; }
+
+  input[type="range"] { -webkit-appearance: none; background: transparent; }
+  input[type="range"]::-webkit-slider-track { height: 4px; background: #243052; border-radius: 2px; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #34d399; border-radius: 50%; margin-top: -6px; cursor: pointer; }
+</style>
+</head>
+<body class="min-h-screen text-gray-200">
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- Toast Container -->
+<div id="toast-container" class="fixed top-6 right-6 z-[100] flex flex-col gap-3"></div>
+
+<!-- Top Navigation -->
+<nav class="sticky top-0 z-50 glass border-b border-dark-500/50">
+  <div class="max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 text-gray-400 hover:text-emerald-400 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm">돌아가기</span>
+      </a>
+      <div class="w-px h-8 bg-dark-500"></div>
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500/20 to-sky-500/20 flex items-center justify-center border border-emerald-500/30">
+          <i data-lucide="activity" class="w-5 h-5 text-emerald-400"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-semibold text-white leading-tight">검침값 예측 (LP 데이터)</h1>
+          <p class="text-xs text-gray-500">LSTM 기반 전력 사용량 예측 시스템</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="text-xs text-gray-500" id="current-time"></span>
+      <div class="w-2 h-2 rounded-full bg-emerald-400 pulse-glow"></div>
+      <span class="text-xs text-emerald-400 font-medium">시스템 정상</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="max-w-[1600px] mx-auto px-6 py-6">
+
+  <!-- Customer Search Panel -->
+  <div id="search-panel" class="fade-in-up">
+    <div class="glass rounded-2xl p-6 mb-6">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-3">
+          <i data-lucide="search" class="w-5 h-5 text-emerald-400"></i>
+          <h2 class="text-lg font-semibold text-white">고객 검색</h2>
+        </div>
+        <span class="text-xs text-gray-500">등록 고객: 15,832명</span>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="relative mb-6">
+        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"></i>
+        <input type="text" id="customer-search" placeholder="고객번호 또는 이름으로 검색 (예: A-00421, 김민수)"
+          class="w-full bg-dark-800 border border-dark-500 rounded-xl pl-11 pr-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/20 transition-all">
+        <div id="search-results" class="absolute top-full left-0 right-0 mt-2 glass rounded-xl overflow-hidden hidden z-40"></div>
+      </div>
+
+      <!-- Preset Customers -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="customer-card glass rounded-xl p-4 border border-dark-500/50" data-customer="A-00421" onclick="selectCustomer('A-00421')">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 flex items-center justify-center border border-emerald-500/30">
+              <i data-lucide="user" class="w-5 h-5 text-emerald-400"></i>
+            </div>
+            <div>
+              <div class="text-sm font-semibold text-white">김민수</div>
+              <div class="text-xs text-gray-500">A-00421</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>서울 강남구 역삼동</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+            <i data-lucide="zap" class="w-3 h-3"></i>
+            <span>평균 312 kWh/월</span>
+          </div>
+        </div>
+
+        <div class="customer-card glass rounded-xl p-4 border border-dark-500/50" data-customer="B-01832" onclick="selectCustomer('B-01832')">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-sky-500/20 to-sky-600/20 flex items-center justify-center border border-sky-500/30">
+              <i data-lucide="user" class="w-5 h-5 text-sky-400"></i>
+            </div>
+            <div>
+              <div class="text-sm font-semibold text-white">이영희</div>
+              <div class="text-xs text-gray-500">B-01832</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>부산 해운대구 우동</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+            <i data-lucide="zap" class="w-3 h-3"></i>
+            <span>평균 287 kWh/월</span>
+          </div>
+        </div>
+
+        <div class="customer-card glass rounded-xl p-4 border border-dark-500/50" data-customer="C-05291" onclick="selectCustomer('C-05291')">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500/20 to-violet-600/20 flex items-center justify-center border border-violet-500/30">
+              <i data-lucide="user" class="w-5 h-5 text-violet-400"></i>
+            </div>
+            <div>
+              <div class="text-sm font-semibold text-white">박진호</div>
+              <div class="text-xs text-gray-500">C-05291</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>대전 유성구 봉명동</span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500 mt-1">
+            <i data-lucide="zap" class="w-3 h-3"></i>
+            <span>평균 265 kWh/월</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard (hidden until customer selected) -->
+  <div id="dashboard" class="hidden">
+
+    <!-- Customer Header Bar -->
+    <div class="glass rounded-2xl p-5 mb-6 fade-in-up">
+      <div class="flex items-center justify-between flex-wrap gap-4">
+        <div class="flex items-center gap-4">
+          <div id="customer-avatar" class="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 flex items-center justify-center border border-emerald-500/30">
+            <i data-lucide="user" class="w-6 h-6 text-emerald-400"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-3">
+              <span id="customer-name" class="text-lg font-semibold text-white">김민수</span>
+              <span id="customer-id-badge" class="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">A-00421</span>
+            </div>
+            <div class="flex items-center gap-4 mt-1">
+              <span id="customer-address" class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i>서울 강남구 역삼동</span>
+              <span id="customer-type" class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="building-2" class="w-3 h-3"></i>주거용 (저압)</span>
+              <span id="customer-contract" class="text-xs text-gray-500 flex items-center gap-1"><i data-lucide="file-text" class="w-3 h-3"></i>계약 5kW</span>
+            </div>
+          </div>
+        </div>
+        <button onclick="goBackToSearch()" class="flex items-center gap-2 text-sm text-gray-400 hover:text-emerald-400 transition-colors bg-dark-700 hover:bg-dark-600 px-4 py-2 rounded-lg border border-dark-500">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          다른 고객 검색
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="kpi-card glass rounded-xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.1s">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-gray-500 font-medium">예측 정확도</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+            <i data-lucide="target" class="w-4 h-4 text-emerald-400"></i>
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <span id="kpi-accuracy" class="text-2xl font-bold text-white">97.3</span>
+          <span class="text-sm text-gray-400 mb-1">%</span>
+        </div>
+        <div class="flex items-center gap-1 mt-2">
+          <i data-lucide="trending-up" class="w-3 h-3 text-emerald-400"></i>
+          <span class="text-xs text-emerald-400">+0.8% 전월 대비</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass rounded-xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.15s">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-gray-500 font-medium">MAPE</span>
+          <div class="w-8 h-8 rounded-lg bg-sky-500/10 flex items-center justify-center">
+            <i data-lucide="percent" class="w-4 h-4 text-sky-400"></i>
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <span id="kpi-mape" class="text-2xl font-bold text-white">2.7</span>
+          <span class="text-sm text-gray-400 mb-1">%</span>
+        </div>
+        <div class="flex items-center gap-1 mt-2">
+          <i data-lucide="trending-down" class="w-3 h-3 text-emerald-400"></i>
+          <span class="text-xs text-emerald-400">-0.3% 개선</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass rounded-xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.2s">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-gray-500 font-medium">예측 사용량</span>
+          <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <span id="kpi-predicted" class="text-2xl font-bold text-white">330</span>
+          <span class="text-sm text-gray-400 mb-1">kWh</span>
+        </div>
+        <div class="flex items-center gap-1 mt-2">
+          <i data-lucide="trending-up" class="w-3 h-3 text-amber-400"></i>
+          <span class="text-xs text-amber-400">+5.1% 전월 대비</span>
+        </div>
+      </div>
+
+      <div class="kpi-card glass rounded-xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.25s">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs text-gray-500 font-medium">자동 산정 요금</span>
+          <div class="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+            <i data-lucide="banknote" class="w-4 h-4 text-violet-400"></i>
+          </div>
+        </div>
+        <div class="flex items-end gap-2">
+          <span class="text-lg text-gray-400 mb-0.5">&#8361;</span>
+          <span id="kpi-billing" class="text-2xl font-bold text-white">54,200</span>
+        </div>
+        <div class="flex items-center gap-1 mt-2">
+          <i data-lucide="trending-up" class="w-3 h-3 text-violet-400"></i>
+          <span class="text-xs text-violet-400">2구간 적용</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Chart + Controls -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-6">
+      <!-- Chart Area -->
+      <div class="xl:col-span-3 glass rounded-2xl p-6 border border-dark-500/50 fade-in-up" style="animation-delay:0.3s">
+        <div class="flex items-center justify-between mb-5 flex-wrap gap-3">
+          <div>
+            <h3 class="text-base font-semibold text-white">월별 전력 사용량 추이</h3>
+            <p class="text-xs text-gray-500 mt-1">2024.01 ~ 2025.12 (24개월)</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs">
+            <span class="flex items-center gap-2"><span class="w-4 h-0.5 bg-sky-400 rounded"></span><span class="text-gray-400">실측값</span></span>
+            <span class="flex items-center gap-2"><span class="w-4 h-0.5 bg-amber-400 rounded" style="border-bottom: 2px dashed #fbbf24;height:0;"></span><span class="text-gray-400">예측값</span></span>
+            <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-full border-2 border-red-400 bg-transparent"></span><span class="text-gray-400">미취득</span></span>
+            <span class="flex items-center gap-2"><span class="w-4 h-3 bg-amber-400/15 rounded"></span><span class="text-gray-400">신뢰구간</span></span>
+          </div>
+        </div>
+
+        <!-- SVG Chart -->
+        <div class="relative" id="chart-container">
+          <div class="scanline-overlay"></div>
+          <svg id="main-chart" viewBox="0 0 1000 400" class="w-full" style="min-height:350px;"></svg>
+          <div id="chart-tooltip" class="chart-tooltip hidden">
+            <div id="tooltip-content"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prediction Controls -->
+      <div class="xl:col-span-1 flex flex-col gap-4">
+        <div class="glass rounded-2xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.35s">
+          <h3 class="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+            <i data-lucide="settings-2" class="w-4 h-4 text-emerald-400"></i>
+            예측 설정
+          </h3>
+
+          <!-- Model Selection -->
+          <div class="mb-4">
+            <label class="text-xs text-gray-500 mb-2 block">예측 모델</label>
+            <select id="model-select" class="w-full bg-dark-800 border border-dark-500 rounded-lg px-3 py-2.5 text-sm text-gray-200 focus:outline-none focus:border-emerald-500/50 transition-colors">
+              <option value="lstm" selected>LSTM (Deep Learning)</option>
+              <option value="prophet">Prophet (Facebook)</option>
+              <option value="ensemble">Ensemble (앙상블)</option>
+            </select>
+          </div>
+
+          <!-- Confidence Interval -->
+          <div class="mb-5">
+            <label class="text-xs text-gray-500 mb-2 block">신뢰구간</label>
+            <div class="flex items-center gap-3">
+              <input type="range" id="confidence-slider" min="0" max="2" step="1" value="1" class="flex-1">
+              <span id="confidence-label" class="text-sm text-emerald-400 font-semibold w-12 text-right">90%</span>
+            </div>
+            <div class="flex justify-between text-[10px] text-gray-600 mt-1 px-0.5">
+              <span>80%</span><span>90%</span><span>95%</span>
+            </div>
+          </div>
+
+          <!-- Run Button -->
+          <button id="run-prediction-btn" onclick="runPrediction()" class="btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2">
+            <i data-lucide="play" class="w-4 h-4"></i>
+            예측 실행
+          </button>
+
+          <div id="prediction-status" class="mt-3 text-center hidden">
+            <div class="flex items-center justify-center gap-2">
+              <div class="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin"></div>
+              <span class="text-xs text-emerald-400">모델 추론 중...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Info -->
+        <div class="glass rounded-2xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.4s">
+          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <i data-lucide="brain" class="w-4 h-4 text-sky-400"></i>
+            모델 정보
+          </h3>
+          <div class="space-y-2.5">
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">모델 버전</span>
+              <span class="text-gray-300" id="model-version">v3.2.1</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">학습 데이터</span>
+              <span class="text-gray-300">36개월</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">Feature 수</span>
+              <span class="text-gray-300">24개</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">최종 학습일</span>
+              <span class="text-gray-300">2025.12.15</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">추론 시간</span>
+              <span class="text-gray-300" id="inference-time">~120ms</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weather Correlation -->
+        <div class="glass rounded-2xl p-5 border border-dark-500/50 fade-in-up" style="animation-delay:0.45s">
+          <h3 class="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <i data-lucide="cloud-sun" class="w-4 h-4 text-amber-400"></i>
+            기온-사용량 상관관계
+          </h3>
+          <svg id="weather-chart" viewBox="0 0 280 140" class="w-full mb-3"></svg>
+          <div class="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+            <div class="flex items-start gap-2">
+              <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0"></i>
+              <div>
+                <p class="text-xs text-amber-300 font-medium">기온 상관 분석</p>
+                <p class="text-xs text-gray-400 mt-1">기온 <span class="text-amber-400 font-semibold">+1&#176;C</span> 상승 시 사용량 <span class="text-amber-400 font-semibold">+3.2%</span> 증가 예상</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Section: Table + Billing -->
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+      <!-- Prediction Detail Table -->
+      <div class="xl:col-span-2 glass rounded-2xl p-6 border border-dark-500/50 fade-in-up" style="animation-delay:0.5s">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-base font-semibold text-white flex items-center gap-2">
+            <i data-lucide="table-2" class="w-5 h-5 text-emerald-400"></i>
+            예측 상세 데이터
+          </h3>
+          <button class="text-xs text-gray-400 hover:text-emerald-400 transition-colors flex items-center gap-1 bg-dark-700 hover:bg-dark-600 px-3 py-1.5 rounded-lg border border-dark-500">
+            <i data-lucide="download" class="w-3 h-3"></i>
+            CSV 내보내기
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-dark-500/50">
+                <th class="text-left py-3 px-3 text-xs font-medium text-gray-500">월</th>
+                <th class="text-right py-3 px-3 text-xs font-medium text-gray-500">실측값 (kWh)</th>
+                <th class="text-right py-3 px-3 text-xs font-medium text-gray-500">예측값 (kWh)</th>
+                <th class="text-right py-3 px-3 text-xs font-medium text-gray-500">오차율 (%)</th>
+                <th class="text-center py-3 px-3 text-xs font-medium text-gray-500">상태</th>
+              </tr>
+            </thead>
+            <tbody id="prediction-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Auto Billing Panel -->
+      <div class="xl:col-span-1 glass rounded-2xl p-6 border border-dark-500/50 fade-in-up" style="animation-delay:0.55s">
+        <h3 class="text-base font-semibold text-white mb-5 flex items-center gap-2">
+          <i data-lucide="receipt" class="w-5 h-5 text-violet-400"></i>
+          자동 요금 산정
+        </h3>
+
+        <!-- Predicted Usage -->
+        <div class="bg-dark-800 rounded-xl p-4 mb-4">
+          <div class="text-xs text-gray-500 mb-1">예측 사용량 기준</div>
+          <div class="text-2xl font-bold text-white"><span id="billing-kwh">330</span> <span class="text-sm text-gray-400 font-normal">kWh</span></div>
+        </div>
+
+        <!-- Progressive Rate Visualization -->
+        <div class="mb-5">
+          <div class="text-xs text-gray-500 mb-3">누진구간 적용</div>
+
+          <div class="space-y-3">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-400">1구간 (0~200 kWh)</span>
+                <span class="text-emerald-400">200 kWh</span>
+              </div>
+              <div class="h-2 bg-dark-700 rounded-full overflow-hidden">
+                <div class="billing-bar h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style="width: 100%"></div>
+              </div>
+              <div class="text-right text-[10px] text-gray-500 mt-0.5">&#8361;93.3/kWh = &#8361;18,660</div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-400">2구간 (201~400 kWh)</span>
+                <span id="billing-tier2-kwh" class="text-sky-400">130 kWh</span>
+              </div>
+              <div class="h-2 bg-dark-700 rounded-full overflow-hidden">
+                <div id="billing-tier2-bar" class="billing-bar h-full bg-gradient-to-r from-sky-500 to-sky-400 rounded-full" style="width: 65%"></div>
+              </div>
+              <div class="text-right text-[10px] text-gray-500 mt-0.5" id="billing-tier2-cost">&#8361;187.9/kWh = &#8361;24,427</div>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="text-gray-400">3구간 (401~ kWh)</span>
+                <span class="text-gray-600">미적용</span>
+              </div>
+              <div class="h-2 bg-dark-700 rounded-full overflow-hidden">
+                <div class="billing-bar h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full" style="width: 0%"></div>
+              </div>
+              <div class="text-right text-[10px] text-gray-500 mt-0.5">&#8361;280.6/kWh</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing Summary -->
+        <div class="border-t border-dark-500/50 pt-4 mb-5">
+          <div class="space-y-2">
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">전력량 요금</span>
+              <span class="text-gray-300" id="billing-energy">&#8361;43,087</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">기본 요금</span>
+              <span class="text-gray-300">&#8361;1,600</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">기후환경요금</span>
+              <span class="text-gray-300" id="billing-climate">&#8361;2,970</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">연료비조정액</span>
+              <span class="text-gray-300" id="billing-fuel">&#8361;1,650</span>
+            </div>
+            <div class="flex justify-between text-xs">
+              <span class="text-gray-500">부가가치세</span>
+              <span class="text-gray-300" id="billing-vat">&#8361;4,893</span>
+            </div>
+          </div>
+          <div class="flex justify-between mt-3 pt-3 border-t border-dark-500/50">
+            <span class="text-sm font-semibold text-white">합계</span>
+            <span class="text-lg font-bold text-emerald-400" id="billing-total">&#8361;54,200</span>
+          </div>
+        </div>
+
+        <!-- ERP Transfer Button -->
+        <button onclick="sendToERP()" class="btn-primary w-full py-3 rounded-xl text-sm font-semibold text-white flex items-center justify-center gap-2">
+          <i data-lucide="send" class="w-4 h-4"></i>
+          ERP 전송
+        </button>
+        <p class="text-[10px] text-gray-600 text-center mt-2">SAP ERP 시스템으로 자동 산정 요금 데이터를 전송합니다</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// =========================================
+// DATA GENERATION
+// =========================================
+
+const CUSTOMERS = {
+  'A-00421': {
+    id: 'A-00421', name: '김민수', address: '서울 강남구 역삼동',
+    type: '주거용 (저압)', contract: '계약 5kW', avgUsage: 312,
+    color: 'emerald',
+    data: generateCustomerData(312, [4, 8, 15, 22]),  // missing months indices
+    accuracy: 97.3, mape: 2.7, predicted: 330, billing: 54200
+  },
+  'B-01832': {
+    id: 'B-01832', name: '이영희', address: '부산 해운대구 우동',
+    type: '주거용 (저압)', contract: '계약 3kW', avgUsage: 287,
+    color: 'sky',
+    data: generateCustomerData(287, [3, 9, 17]),
+    accuracy: 95.8, mape: 3.4, predicted: 298, billing: 47800
+  },
+  'C-05291': {
+    id: 'C-05291', name: '박진호', address: '대전 유성구 봉명동',
+    type: '주거용 (저압)', contract: '계약 4kW', avgUsage: 265,
+    color: 'violet',
+    data: generateCustomerData(265, [2, 11, 19, 21]),
+    accuracy: 96.5, mape: 2.9, predicted: 275, billing: 41500
+  }
+};
+
+const MONTHS = [];
+for (let y = 2024; y <= 2025; y++) {
+  for (let m = 1; m <= 12; m++) {
+    MONTHS.push(`${y}.${String(m).padStart(2, '0')}`);
+  }
+}
+
+const TEMPERATURES = [
+  -2.1, 1.3, 7.8, 14.2, 19.5, 25.1, 27.8, 28.5, 23.2, 15.6, 7.2, -0.5,
+  -1.8, 2.1, 8.5, 15.0, 20.1, 26.3, 28.4, 29.1, 23.8, 16.1, 7.8, 0.2
+];
+
+function generateCustomerData(avgUsage, missingIndices) {
+  const seasonalPattern = [
+    1.15, 1.05, 0.90, 0.82, 0.85, 1.08, 1.25, 1.30, 1.05, 0.88, 0.92, 1.10,
+    1.18, 1.08, 0.88, 0.80, 0.87, 1.10, 1.28, 1.32, 1.03, 0.85, 0.90, 1.12
+  ];
+  const data = [];
+  for (let i = 0; i < 24; i++) {
+    const baseUsage = avgUsage * seasonalPattern[i];
+    const noise = (Math.random() - 0.5) * avgUsage * 0.08;
+    const actual = Math.round(baseUsage + noise);
+    const predNoise = (Math.random() - 0.5) * avgUsage * 0.04;
+    const predicted = Math.round(baseUsage + predNoise);
+    const isMissing = missingIndices.includes(i);
+    const isFuture = i >= 22;
+    data.push({
+      month: MONTHS[i],
+      actual: (isMissing || isFuture) ? null : actual,
+      predicted: predicted,
+      isMissing: isMissing,
+      isFuture: isFuture,
+      errorRate: isMissing ? null : Math.abs(((actual || predicted) - predicted) / (actual || predicted) * 100).toFixed(1)
+    });
+  }
+  return data;
+}
+
+let currentCustomer = null;
+let predictionAnimated = false;
+let confidenceLevel = 1; // 0=80%, 1=90%, 2=95%
+
+// =========================================
+// CUSTOMER SEARCH
+// =========================================
+
+const searchInput = document.getElementById('customer-search');
+const searchResults = document.getElementById('search-results');
+
+searchInput.addEventListener('input', function() {
+  const query = this.value.trim().toLowerCase();
+  if (query.length === 0) {
+    searchResults.classList.add('hidden');
+    return;
+  }
+
+  const matches = Object.values(CUSTOMERS).filter(c =>
+    c.id.toLowerCase().includes(query) || c.name.toLowerCase().includes(query)
+  );
+
+  if (matches.length === 0) {
+    searchResults.classList.add('hidden');
+    return;
+  }
+
+  searchResults.innerHTML = matches.map(c => `
+    <div class="px-4 py-3 hover:bg-dark-600 cursor-pointer flex items-center gap-3 transition-colors" onclick="selectCustomer('${c.id}')">
+      <div class="w-8 h-8 rounded-full bg-${c.color}-500/20 flex items-center justify-center">
+        <i data-lucide="user" class="w-4 h-4 text-${c.color}-400"></i>
+      </div>
+      <div>
+        <div class="text-sm text-white">${c.name}</div>
+        <div class="text-xs text-gray-500">${c.id} | ${c.address}</div>
+      </div>
+    </div>
+  `).join('');
+  searchResults.classList.remove('hidden');
+  lucide.createIcons();
+});
+
+document.addEventListener('click', (e) => {
+  if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+    searchResults.classList.add('hidden');
+  }
+});
+
+// =========================================
+// CUSTOMER SELECTION
+// =========================================
+
+function selectCustomer(id) {
+  currentCustomer = CUSTOMERS[id];
+  predictionAnimated = false;
+
+  // Update cards selection state
+  document.querySelectorAll('.customer-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.customer === id);
+  });
+
+  // Update customer header
+  document.getElementById('customer-name').textContent = currentCustomer.name;
+  document.getElementById('customer-id-badge').textContent = currentCustomer.id;
+  document.getElementById('customer-address').innerHTML = `<i data-lucide="map-pin" class="w-3 h-3"></i>${currentCustomer.address}`;
+  document.getElementById('customer-type').innerHTML = `<i data-lucide="building-2" class="w-3 h-3"></i>${currentCustomer.type}`;
+  document.getElementById('customer-contract').innerHTML = `<i data-lucide="file-text" class="w-3 h-3"></i>${currentCustomer.contract}`;
+
+  // Update KPIs
+  document.getElementById('kpi-accuracy').textContent = currentCustomer.accuracy;
+  document.getElementById('kpi-mape').textContent = currentCustomer.mape;
+  document.getElementById('kpi-predicted').textContent = currentCustomer.predicted;
+  document.getElementById('kpi-billing').textContent = currentCustomer.billing.toLocaleString();
+
+  // Update billing
+  updateBilling(currentCustomer.predicted);
+
+  // Show dashboard
+  document.getElementById('search-panel').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+
+  // Render chart and table
+  renderChart();
+  renderTable();
+  renderWeatherChart();
+
+  // Re-init Lucide icons
+  lucide.createIcons();
+
+  // Close search results
+  searchResults.classList.add('hidden');
+  searchInput.value = '';
+}
+
+function goBackToSearch() {
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('search-panel').classList.remove('hidden');
+  currentCustomer = null;
+}
+
+// =========================================
+// MAIN CHART (SVG)
+// =========================================
+
+function renderChart() {
+  const svg = document.getElementById('main-chart');
+  const data = currentCustomer.data;
+
+  const W = 1000, H = 400;
+  const pad = { top: 30, right: 30, bottom: 60, left: 55 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+
+  // Find value range
+  const allVals = data.map(d => d.predicted).concat(data.filter(d => d.actual !== null).map(d => d.actual));
+  const minVal = Math.min(...allVals) * 0.8;
+  const maxVal = Math.max(...allVals) * 1.2;
+
+  const xScale = (i) => pad.left + (i / (data.length - 1)) * chartW;
+  const yScale = (v) => pad.top + chartH - ((v - minVal) / (maxVal - minVal)) * chartH;
+
+  // Confidence multipliers
+  const confMultipliers = [0.06, 0.09, 0.13]; // 80%, 90%, 95%
+  const confMult = confMultipliers[confidenceLevel];
+
+  // Build SVG content
+  let svgContent = '';
+
+  // Grid lines
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = pad.top + (i / gridSteps) * chartH;
+    const val = Math.round(maxVal - (i / gridSteps) * (maxVal - minVal));
+    svgContent += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#1a2540" stroke-width="1"/>`;
+    svgContent += `<text x="${pad.left - 10}" y="${y + 4}" text-anchor="end" fill="#4b5563" font-size="10">${val}</text>`;
+  }
+
+  // Y-axis label
+  svgContent += `<text x="15" y="${pad.top + chartH/2}" text-anchor="middle" fill="#6b7280" font-size="10" transform="rotate(-90, 15, ${pad.top + chartH/2})">kWh</text>`;
+
+  // X-axis labels
+  data.forEach((d, i) => {
+    if (i % 2 === 0) {
+      const x = xScale(i);
+      svgContent += `<text x="${x}" y="${H - pad.bottom + 20}" text-anchor="middle" fill="#4b5563" font-size="9" transform="rotate(-45, ${x}, ${H - pad.bottom + 20})">${d.month}</text>`;
+    }
+    // Tick marks
+    const x = xScale(i);
+    svgContent += `<line x1="${x}" y1="${H - pad.bottom}" x2="${x}" y2="${H - pad.bottom + 5}" stroke="#1a2540" stroke-width="1"/>`;
+  });
+
+  // Confidence band (for predicted/missing points)
+  let bandUpper = '';
+  let bandLower = '';
+  data.forEach((d, i) => {
+    if (d.isMissing || d.isFuture) {
+      const upper = yScale(d.predicted * (1 + confMult));
+      const lower = yScale(d.predicted * (1 - confMult));
+      const x = xScale(i);
+      bandUpper += (bandUpper === '' ? 'M' : 'L') + `${x},${upper}`;
+      bandLower = `L${x},${lower}` + bandLower;
+    }
+  });
+  if (bandUpper) {
+    // Build a proper band polygon for all predicted/missing sections
+    let bandPoints = [];
+    data.forEach((d, i) => {
+      if (d.isMissing || d.isFuture || d.actual === null) {
+        bandPoints.push({ x: xScale(i), upper: yScale(d.predicted * (1 + confMult)), lower: yScale(d.predicted * (1 - confMult)) });
+      }
+    });
+    // Group consecutive
+    let groups = [];
+    let currentGroup = [];
+    let lastIdx = -2;
+    data.forEach((d, i) => {
+      if (d.isMissing || d.isFuture || d.actual === null) {
+        if (i - lastIdx > 1 && currentGroup.length > 0) {
+          groups.push([...currentGroup]);
+          currentGroup = [];
+        }
+        currentGroup.push({ x: xScale(i), upper: yScale(d.predicted * (1 + confMult)), lower: yScale(d.predicted * (1 - confMult)) });
+        lastIdx = i;
+      }
+    });
+    if (currentGroup.length > 0) groups.push(currentGroup);
+
+    groups.forEach(group => {
+      if (group.length === 1) {
+        // Single point, draw a small rect
+        const p = group[0];
+        svgContent += `<rect x="${p.x - 8}" y="${p.upper}" width="16" height="${p.lower - p.upper}" fill="rgba(251, 191, 36, 0.08)" rx="4" class="confidence-band visible"/>`;
+      } else {
+        let pathD = `M${group[0].x},${group[0].upper}`;
+        for (let j = 1; j < group.length; j++) pathD += `L${group[j].x},${group[j].upper}`;
+        for (let j = group.length - 1; j >= 0; j--) pathD += `L${group[j].x},${group[j].lower}`;
+        pathD += 'Z';
+        svgContent += `<path d="${pathD}" fill="rgba(251, 191, 36, 0.08)" class="confidence-band visible"/>`;
+      }
+    });
+  }
+
+  // Actual usage line
+  let actualPath = '';
+  let prevActualIdx = -1;
+  data.forEach((d, i) => {
+    if (d.actual !== null) {
+      const x = xScale(i);
+      const y = yScale(d.actual);
+      if (prevActualIdx === -1 || i - prevActualIdx > 1) {
+        actualPath += `M${x},${y}`;
+      } else {
+        actualPath += `L${x},${y}`;
+      }
+      prevActualIdx = i;
+    }
+  });
+  svgContent += `<path d="${actualPath}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="draw-line"/>`;
+
+  // Predicted usage line (dashed for missing/future)
+  let predPath = '';
+  data.forEach((d, i) => {
+    const x = xScale(i);
+    const y = yScale(d.predicted);
+    predPath += (i === 0 ? 'M' : 'L') + `${x},${y}`;
+  });
+  svgContent += `<path d="${predPath}" fill="none" stroke="#fbbf24" stroke-width="2" stroke-dasharray="6,4" stroke-linecap="round" stroke-linejoin="round" class="draw-line-delayed" opacity="0.7"/>`;
+
+  // Data points - actual
+  data.forEach((d, i) => {
+    if (d.actual !== null) {
+      const x = xScale(i);
+      const y = yScale(d.actual);
+      svgContent += `<circle cx="${x}" cy="${y}" r="4" fill="#0ea5e9" stroke="#070b16" stroke-width="2" class="chart-point" data-index="${i}"/>`;
+    }
+  });
+
+  // Data points - missing/predicted
+  data.forEach((d, i) => {
+    if (d.isMissing || d.isFuture) {
+      const x = xScale(i);
+      const y = yScale(d.predicted);
+      // Red ring for missing
+      if (d.isMissing) {
+        svgContent += `<circle cx="${x}" cy="${y}" r="7" fill="none" stroke="#f87171" stroke-width="2" opacity="0.6"/>`;
+        svgContent += `<circle cx="${x}" cy="${y}" r="3" fill="#f87171" stroke="#070b16" stroke-width="1.5" class="chart-point" data-index="${i}"/>`;
+      } else {
+        svgContent += `<circle cx="${x}" cy="${y}" r="4" fill="#fbbf24" stroke="#070b16" stroke-width="2" class="chart-point" data-index="${i}"/>`;
+      }
+    }
+  });
+
+  // Invisible hover zones
+  data.forEach((d, i) => {
+    const x = xScale(i);
+    svgContent += `<rect x="${x - 18}" y="${pad.top}" width="36" height="${chartH}" fill="transparent" class="chart-hover-zone" data-index="${i}" style="cursor:pointer"/>`;
+  });
+
+  // Hover vertical line placeholder
+  svgContent += `<line id="hover-line" x1="0" y1="${pad.top}" x2="0" y2="${H - pad.bottom}" stroke="#34d399" stroke-width="1" stroke-dasharray="4,4" opacity="0" />`;
+
+  svg.innerHTML = svgContent;
+
+  // Tooltip handlers
+  const tooltip = document.getElementById('chart-tooltip');
+  const tooltipContent = document.getElementById('tooltip-content');
+  const hoverLine = document.getElementById('hover-line');
+  const container = document.getElementById('chart-container');
+
+  svg.querySelectorAll('.chart-hover-zone').forEach(zone => {
+    zone.addEventListener('mouseenter', (e) => {
+      const idx = parseInt(zone.dataset.index);
+      const d = data[idx];
+      const x = xScale(idx);
+
+      hoverLine.setAttribute('x1', x);
+      hoverLine.setAttribute('x2', x);
+      hoverLine.setAttribute('opacity', '0.5');
+
+      let html = `<div class="text-xs font-semibold text-white mb-1">${d.month}</div>`;
+      if (d.actual !== null) {
+        html += `<div class="flex items-center gap-2 mb-0.5"><span class="w-2 h-2 rounded-full bg-sky-400"></span><span class="text-gray-400">실측:</span><span class="text-white font-medium">${d.actual} kWh</span></div>`;
+      }
+      html += `<div class="flex items-center gap-2 mb-0.5"><span class="w-2 h-2 rounded-full bg-amber-400"></span><span class="text-gray-400">예측:</span><span class="text-white font-medium">${d.predicted} kWh</span></div>`;
+      if (d.isMissing) {
+        html += `<div class="text-xs text-red-400 mt-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-red-400"></span>미취득 구간</div>`;
+      }
+      if (d.isFuture) {
+        html += `<div class="text-xs text-amber-400 mt-1 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>미래 예측</div>`;
+      }
+      if (d.errorRate !== null && !d.isFuture) {
+        html += `<div class="text-xs text-gray-500 mt-1">오차율: ${d.errorRate}%</div>`;
+      }
+
+      tooltipContent.innerHTML = html;
+      tooltip.classList.remove('hidden');
+
+      // Position tooltip
+      const rect = container.getBoundingClientRect();
+      const svgRect = svg.getBoundingClientRect();
+      const ratioX = (x / W);
+      const tooltipX = svgRect.left - rect.left + ratioX * svgRect.width;
+      const ratioY = ((d.actual !== null ? yScale(d.actual) : yScale(d.predicted)) / H);
+      const tooltipY = svgRect.top - rect.top + ratioY * svgRect.height;
+
+      const tipW = tooltip.offsetWidth;
+      let left = tooltipX - tipW / 2;
+      if (left < 0) left = tooltipX + 10;
+      if (left + tipW > rect.width) left = tooltipX - tipW - 10;
+
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = (tooltipY - tooltip.offsetHeight - 12) + 'px';
+    });
+
+    zone.addEventListener('mouseleave', () => {
+      tooltip.classList.add('hidden');
+      hoverLine.setAttribute('opacity', '0');
+    });
+  });
+}
+
+// =========================================
+// WEATHER CORRELATION CHART
+// =========================================
+
+function renderWeatherChart() {
+  const svg = document.getElementById('weather-chart');
+  const W = 280, H = 140;
+  const pad = { top: 15, right: 15, bottom: 25, left: 30 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  const data = currentCustomer.data;
+  const usageVals = data.map(d => d.actual || d.predicted);
+  const minU = Math.min(...usageVals) * 0.85;
+  const maxU = Math.max(...usageVals) * 1.1;
+  const minT = Math.min(...TEMPERATURES) - 3;
+  const maxT = Math.max(...TEMPERATURES) + 3;
+
+  const xS = (i) => pad.left + (i / (data.length - 1)) * cW;
+  const yU = (v) => pad.top + cH - ((v - minU) / (maxU - minU)) * cH;
+  const yT = (v) => pad.top + cH - ((v - minT) / (maxT - minT)) * cH;
+
+  let svgContent = '';
+
+  // Grid
+  for (let i = 0; i <= 3; i++) {
+    const y = pad.top + (i / 3) * cH;
+    svgContent += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" stroke="#1a2540" stroke-width="0.5"/>`;
+  }
+
+  // Usage bars (subtle)
+  data.forEach((d, i) => {
+    const val = d.actual || d.predicted;
+    const x = xS(i);
+    const y = yU(val);
+    const barH = pad.top + cH - y;
+    svgContent += `<rect x="${x - 3}" y="${y}" width="6" height="${barH}" fill="rgba(56, 189, 248, 0.15)" rx="1"/>`;
+  });
+
+  // Temperature line
+  let tempPath = '';
+  TEMPERATURES.forEach((t, i) => {
+    tempPath += (i === 0 ? 'M' : 'L') + `${xS(i)},${yT(t)}`;
+  });
+  svgContent += `<path d="${tempPath}" fill="none" stroke="#f97316" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>`;
+
+  // Temperature dots
+  TEMPERATURES.forEach((t, i) => {
+    svgContent += `<circle cx="${xS(i)}" cy="${yT(t)}" r="2" fill="#f97316" opacity="0.8"/>`;
+  });
+
+  // Axis labels
+  svgContent += `<text x="${pad.left - 5}" y="${pad.top + 4}" text-anchor="end" fill="#38bdf8" font-size="7">kWh</text>`;
+  svgContent += `<text x="${W - pad.right + 5}" y="${pad.top + 4}" text-anchor="start" fill="#f97316" font-size="7">&#176;C</text>`;
+
+  // Month labels (sparse)
+  [0, 6, 12, 18, 23].forEach(i => {
+    svgContent += `<text x="${xS(i)}" y="${H - 5}" text-anchor="middle" fill="#4b5563" font-size="7">${MONTHS[i].slice(2)}</text>`;
+  });
+
+  // Legend
+  svgContent += `<circle cx="${pad.left + 5}" cy="${H - 5}" r="3" fill="rgba(56,189,248,0.3)"/>`;
+  svgContent += `<text x="${pad.left + 12}" y="${H - 2}" fill="#6b7280" font-size="7">사용량</text>`;
+  svgContent += `<line x1="${pad.left + 50}" y1="${H - 5}" x2="${pad.left + 60}" y2="${H - 5}" stroke="#f97316" stroke-width="1.5"/>`;
+  svgContent += `<text x="${pad.left + 64}" y="${H - 2}" fill="#6b7280" font-size="7">기온</text>`;
+
+  svg.innerHTML = svgContent;
+}
+
+// =========================================
+// PREDICTION TABLE
+// =========================================
+
+function renderTable() {
+  const tbody = document.getElementById('prediction-table-body');
+  const data = currentCustomer.data;
+
+  // Show last 12 months (2025.01 ~ 2025.12)
+  const last12 = data.slice(12);
+
+  tbody.innerHTML = last12.map((d, i) => {
+    let statusClass, statusText;
+    if (d.isFuture) {
+      statusClass = 'status-predicted';
+      statusText = '미래 예측';
+    } else if (d.isMissing) {
+      statusClass = 'status-missing';
+      statusText = '미취득→예측완료';
+    } else if (parseFloat(d.errorRate) > 5) {
+      statusClass = 'status-error';
+      statusText = '오차 주의';
+    } else {
+      statusClass = 'status-normal';
+      statusText = '정상';
+    }
+
+    const actualDisplay = d.actual !== null ? d.actual.toLocaleString() : '<span class="text-red-400/70">미취득</span>';
+    const errorDisplay = d.errorRate !== null ? d.errorRate : '-';
+
+    return `
+      <tr class="border-b border-dark-500/20 hover:bg-dark-700/30 transition-colors">
+        <td class="py-2.5 px-3 text-sm text-gray-300">${d.month}</td>
+        <td class="py-2.5 px-3 text-sm text-right ${d.actual === null ? 'text-red-400/70' : 'text-gray-200'}">${actualDisplay}</td>
+        <td class="py-2.5 px-3 text-sm text-right text-amber-300">${d.predicted.toLocaleString()}</td>
+        <td class="py-2.5 px-3 text-sm text-right ${parseFloat(errorDisplay) > 5 ? 'text-red-400' : 'text-gray-400'}">${errorDisplay}</td>
+        <td class="py-2.5 px-3 text-center"><span class="text-xs px-2 py-0.5 rounded-full ${statusClass}">${statusText}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// =========================================
+// BILLING CALCULATION
+// =========================================
+
+function updateBilling(kWh) {
+  const tier1Max = 200;
+  const tier2Max = 400;
+
+  const tier1Rate = 93.3;
+  const tier2Rate = 187.9;
+  const tier3Rate = 280.6;
+
+  let tier1 = Math.min(kWh, tier1Max);
+  let tier2 = Math.min(Math.max(kWh - tier1Max, 0), tier2Max - tier1Max);
+  let tier3 = Math.max(kWh - tier2Max, 0);
+
+  const energyCost = Math.round(tier1 * tier1Rate + tier2 * tier2Rate + tier3 * tier3Rate);
+  const baseCost = 1600;
+  const climateCost = Math.round(kWh * 9);
+  const fuelCost = Math.round(kWh * 5);
+  const subtotal = energyCost + baseCost + climateCost + fuelCost;
+  const vat = Math.round(subtotal * 0.1);
+  const total = subtotal + vat;
+
+  document.getElementById('billing-kwh').textContent = kWh;
+  document.getElementById('billing-tier2-kwh').textContent = tier2 > 0 ? `${tier2} kWh` : '미적용';
+  document.getElementById('billing-tier2-bar').style.width = tier2 > 0 ? `${(tier2 / (tier2Max - tier1Max)) * 100}%` : '0%';
+  document.getElementById('billing-tier2-cost').innerHTML = tier2 > 0 ? `&#8361;${tier2Rate}/kWh = &#8361;${Math.round(tier2 * tier2Rate).toLocaleString()}` : '&#8361;187.9/kWh';
+  document.getElementById('billing-energy').innerHTML = `&#8361;${energyCost.toLocaleString()}`;
+  document.getElementById('billing-climate').innerHTML = `&#8361;${climateCost.toLocaleString()}`;
+  document.getElementById('billing-fuel').innerHTML = `&#8361;${fuelCost.toLocaleString()}`;
+  document.getElementById('billing-vat').innerHTML = `&#8361;${vat.toLocaleString()}`;
+  document.getElementById('billing-total').innerHTML = `&#8361;${total.toLocaleString()}`;
+  document.getElementById('kpi-billing').textContent = total.toLocaleString();
+}
+
+// =========================================
+// PREDICTION ANIMATION
+// =========================================
+
+function runPrediction() {
+  const btn = document.getElementById('run-prediction-btn');
+  const status = document.getElementById('prediction-status');
+  const container = document.getElementById('chart-container');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></div> 분석 중...';
+  status.classList.remove('hidden');
+  container.classList.add('prediction-running');
+
+  // Simulate steps
+  const steps = [
+    { text: '데이터 전처리 중...', delay: 600 },
+    { text: 'LSTM 모델 로딩 중...', delay: 900 },
+    { text: 'Feature 추출 중...', delay: 700 },
+    { text: '추론 실행 중...', delay: 800 },
+    { text: '결과 후처리 중...', delay: 500 },
+  ];
+
+  let totalDelay = 0;
+  steps.forEach((step, i) => {
+    totalDelay += step.delay;
+    setTimeout(() => {
+      status.querySelector('span').textContent = step.text;
+    }, totalDelay - step.delay);
+  });
+
+  setTimeout(() => {
+    // Re-generate data with slight variation
+    const newData = generateCustomerData(currentCustomer.avgUsage, currentCustomer.data.map((d, i) => d.isMissing ? i : -1).filter(i => i >= 0));
+    currentCustomer.data = newData;
+
+    // Update accuracy slightly
+    const modelSelect = document.getElementById('model-select').value;
+    let accBonus = 0;
+    let modelVer = 'v3.2.1';
+    let infTime = '~120ms';
+
+    if (modelSelect === 'lstm') { accBonus = 0; modelVer = 'v3.2.1'; infTime = '~120ms'; }
+    else if (modelSelect === 'prophet') { accBonus = -1.2; modelVer = 'v2.1.0'; infTime = '~340ms'; }
+    else { accBonus = 0.5; modelVer = 'v4.0.0-beta'; infTime = '~450ms'; }
+
+    const newAcc = Math.min(99.1, currentCustomer.accuracy + accBonus + (Math.random() * 0.4 - 0.2));
+    document.getElementById('kpi-accuracy').textContent = newAcc.toFixed(1);
+    document.getElementById('kpi-mape').textContent = (100 - newAcc).toFixed(1);
+    document.getElementById('model-version').textContent = modelVer;
+    document.getElementById('inference-time').textContent = infTime;
+
+    // Re-render
+    renderChart();
+    renderTable();
+    updateBilling(currentCustomer.predicted);
+
+    // Reset button
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play" class="w-4 h-4"></i> 예측 실행';
+    status.classList.add('hidden');
+    container.classList.remove('prediction-running');
+    lucide.createIcons();
+
+    showToast('예측 완료', `${currentCustomer.name} 고객의 사용량 예측이 성공적으로 완료되었습니다.`, 'success');
+  }, totalDelay + 300);
+}
+
+// =========================================
+// CONFIDENCE SLIDER
+// =========================================
+
+document.getElementById('confidence-slider').addEventListener('input', function() {
+  confidenceLevel = parseInt(this.value);
+  const labels = ['80%', '90%', '95%'];
+  document.getElementById('confidence-label').textContent = labels[confidenceLevel];
+  if (currentCustomer) renderChart();
+});
+
+// =========================================
+// ERP TRANSFER
+// =========================================
+
+function sendToERP() {
+  showToast('ERP 전송 완료', `SAP ERP 시스템으로 ${currentCustomer.name} 고객의 요금 데이터가 성공적으로 전송되었습니다.`, 'success');
+}
+
+// =========================================
+// TOAST NOTIFICATIONS
+// =========================================
+
+function showToast(title, message, type = 'success') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+
+  const iconMap = { success: 'check-circle', error: 'x-circle', info: 'info' };
+  const colorMap = { success: 'emerald', error: 'red', info: 'sky' };
+  const color = colorMap[type];
+
+  toast.className = 'toast-anim glass rounded-xl p-4 max-w-sm border border-dark-500/50';
+  toast.innerHTML = `
+    <div class="flex items-start gap-3">
+      <div class="w-8 h-8 rounded-full bg-${color}-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+        <i data-lucide="${iconMap[type]}" class="w-4 h-4 text-${color}-400"></i>
+      </div>
+      <div class="flex-1">
+        <div class="text-sm font-semibold text-white">${title}</div>
+        <div class="text-xs text-gray-400 mt-0.5">${message}</div>
+      </div>
+      <button onclick="this.closest('.toast-anim').remove()" class="text-gray-500 hover:text-gray-300 flex-shrink-0">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  `;
+
+  container.appendChild(toast);
+  lucide.createIcons();
+
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 4000);
+}
+
+// =========================================
+// TIME DISPLAY
+// =========================================
+
+function updateTime() {
+  const now = new Date();
+  document.getElementById('current-time').textContent =
+    `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+}
+setInterval(updateTime, 1000);
+updateTime();
+
+// =========================================
+// INIT
+// =========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+});
+</script>
+</body>
+</html>

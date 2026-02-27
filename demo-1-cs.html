@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고객경험관리(CS) 분석 | AI 감성분석 시스템</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;color:#e2e8f0;min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+
+/* ─── Animations ─── */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInScale{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes modalIn{from{opacity:0;transform:scale(.94) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(56,189,248,.4)}70%{box-shadow:0 0 0 10px rgba(56,189,248,0)}}
+@keyframes glowBorder{0%,100%{border-color:rgba(56,189,248,.15)}50%{border-color:rgba(56,189,248,.5);box-shadow:0 0 20px rgba(56,189,248,.1)}}
+@keyframes barGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes ripple{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.5);opacity:0}}
+@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+@keyframes typewriter{from{width:0}to{width:100%}}
+@keyframes cursorBlink{0%,100%{border-right-color:transparent}50%{border-right-color:#38bdf8}}
+@keyframes donutFill{from{stroke-dasharray:0 100}to{stroke-dasharray:var(--fill) 100}}
+@keyframes wordPop{from{opacity:0;transform:scale(.3) rotate(-10deg)}to{opacity:1;transform:scale(1) rotate(var(--rot))}}
+@keyframes progressStripe{0%{background-position:0 0}100%{background-position:40px 0}}
+@keyframes toastIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(100%)}}
+
+/* ─── Base Styles ─── */
+.card{background:linear-gradient(145deg,#0f172a,#1a2540);border:1px solid rgba(148,163,184,.1);border-radius:16px;transition:all .3s ease;}
+.card:hover{border-color:rgba(56,189,248,.25);box-shadow:0 8px 32px rgba(0,0,0,.3);}
+.glass{background:rgba(15,23,42,.6);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.kpi-card{background:linear-gradient(145deg,#0f172a,#162038);border:1px solid rgba(148,163,184,.08);border-radius:16px;padding:24px;position:relative;overflow:hidden;transition:all .3s;}
+.kpi-card:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.3);box-shadow:0 12px 40px rgba(0,0,0,.4);}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0;}
+.kpi-card:nth-child(1)::before{background:linear-gradient(90deg,#38bdf8,#818cf8);}
+.kpi-card:nth-child(2)::before{background:linear-gradient(90deg,#34d399,#38bdf8);}
+.kpi-card:nth-child(3)::before{background:linear-gradient(90deg,#f87171,#fb923c);}
+.kpi-card:nth-child(4)::before{background:linear-gradient(90deg,#a78bfa,#f472b6);}
+
+/* ─── Buttons ─── */
+.btn-primary{background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;border:none;padding:10px 24px;border-radius:10px;font-weight:600;cursor:pointer;transition:all .3s;font-size:14px;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(14,165,233,.35);}
+.btn-ghost{background:transparent;border:1px solid rgba(148,163,184,.2);color:#94a3b8;padding:8px 16px;border-radius:8px;cursor:pointer;transition:all .2s;font-size:13px;}
+.btn-ghost:hover{border-color:rgba(56,189,248,.4);color:#38bdf8;background:rgba(56,189,248,.05);}
+.btn-ghost.active{background:linear-gradient(135deg,rgba(56,189,248,.15),rgba(99,102,241,.15));border-color:rgba(56,189,248,.5);color:#38bdf8;font-weight:600;}
+
+/* ─── Upload Area ─── */
+.upload-zone{border:2px dashed rgba(56,189,248,.25);border-radius:20px;padding:60px 40px;text-align:center;cursor:pointer;transition:all .4s;position:relative;overflow:hidden;background:linear-gradient(145deg,rgba(15,23,42,.5),rgba(26,37,64,.3));}
+.upload-zone:hover{border-color:rgba(56,189,248,.6);background:linear-gradient(145deg,rgba(15,23,42,.8),rgba(26,37,64,.5));box-shadow:0 0 40px rgba(56,189,248,.08);}
+.upload-zone.dragging{border-color:#38bdf8;background:rgba(56,189,248,.05);box-shadow:0 0 60px rgba(56,189,248,.15);}
+.upload-zone.uploading{border-style:solid;border-color:rgba(56,189,248,.4);pointer-events:none;}
+
+/* ─── Progress Bar ─── */
+.progress-bar{height:6px;background:rgba(30,41,59,.8);border-radius:6px;overflow:hidden;position:relative;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#0ea5e9,#6366f1,#0ea5e9);background-size:200% 100%;border-radius:6px;transition:width .3s ease;animation:shimmer 2s linear infinite;}
+
+/* ─── Table ─── */
+.data-table{width:100%;border-collapse:separate;border-spacing:0;}
+.data-table thead th{background:rgba(15,23,42,.9);padding:14px 16px;text-align:left;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid rgba(148,163,184,.1);position:sticky;top:0;z-index:5;}
+.data-table tbody tr{transition:all .2s;cursor:pointer;}
+.data-table tbody tr:hover{background:rgba(56,189,248,.04);}
+.data-table tbody td{padding:13px 16px;font-size:13px;border-bottom:1px solid rgba(148,163,184,.05);color:#cbd5e1;}
+.risk-badge{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.03em;}
+.risk-high{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3);}
+.risk-mid{background:rgba(251,146,60,.15);color:#fdba74;border:1px solid rgba(251,146,60,.3);}
+.risk-low{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3);}
+
+/* ─── Modal ─── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease;}
+.modal-box{background:linear-gradient(145deg,#0f172a,#1e293b);border:1px solid rgba(56,189,248,.2);border-radius:20px;max-width:640px;width:90%;max-height:85vh;overflow-y:auto;animation:modalIn .35s cubic-bezier(.34,1.56,.64,1);padding:32px;}
+
+/* ─── Toast ─── */
+.toast{position:fixed;bottom:32px;right:32px;z-index:2000;padding:16px 24px;border-radius:12px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:10px;animation:toastIn .4s ease;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+.toast.success{background:linear-gradient(135deg,#065f46,#064e3b);border:1px solid rgba(34,197,94,.3);color:#6ee7b7;}
+.toast.hiding{animation:toastOut .3s ease forwards;}
+
+/* ─── Word Cloud ─── */
+.word-cloud-item{display:inline-block;padding:6px 14px;margin:4px;border-radius:8px;cursor:default;transition:all .3s;animation:wordPop .5s ease forwards;opacity:0;}
+.word-cloud-item:hover{transform:scale(1.12) !important;filter:brightness(1.3);}
+
+/* ─── Insight ─── */
+.insight-item{padding:16px 20px;border-radius:12px;background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.06);margin-bottom:10px;transition:all .3s;}
+.insight-item:hover{background:rgba(56,189,248,.04);border-color:rgba(56,189,248,.15);}
+
+/* ─── Spinner ─── */
+.spinner{width:18px;height:18px;border:2px solid rgba(56,189,248,.2);border-top-color:#38bdf8;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+.spinner-lg{width:48px;height:48px;border-width:3px;}
+
+/* ─── Donut ─── */
+.donut-segment{transform-origin:center;transition:all .3s;}
+.donut-segment:hover{filter:brightness(1.3);transform:scale(1.03);}
+
+/* ─── Responsive ─── */
+@media(max-width:768px){
+  .upload-zone{padding:40px 20px;}
+  .modal-box{padding:20px;width:95%;}
+}
+</style>
+</head>
+<body>
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- ═══════════════════════ HEADER NAV ═══════════════════════ -->
+<header class="glass" style="border-bottom:1px solid rgba(56,189,248,.12);position:sticky;top:0;z-index:100;">
+  <div class="max-w-7xl mx-auto px-4 md:px-6 py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3 md:gap-4">
+        <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-sky-400 transition-colors text-sm group" title="메인으로 돌아가기">
+          <i data-lucide="arrow-left" class="w-4 h-4 group-hover:-translate-x-1 transition-transform"></i>
+          <span class="hidden md:inline">메인</span>
+        </a>
+        <div style="width:1px;height:24px;background:rgba(148,163,184,.15);"></div>
+        <div class="flex items-center gap-3">
+          <div style="background:linear-gradient(135deg,#0ea5e9,#6366f1);width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(14,165,233,.3);">
+            <i data-lucide="message-circle-heart" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h1 class="text-base md:text-lg font-bold text-white" style="letter-spacing:-.3px;">고객경험관리(CS) 분석</h1>
+            <p class="text-slate-500 text-xs">AI 기반 설문 감성분석 시스템</p>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-3 py-1.5 text-xs rounded-full font-medium hidden sm:inline-flex items-center gap-1.5" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.25);color:#86efac;">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-green-400" style="animation:blink 1.5s infinite;"></span>
+          실시간 분석
+        </span>
+        <span class="px-3 py-1.5 text-xs rounded-full font-medium hidden sm:inline-flex" style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.25);color:#c4b5fd;">v2.4.1</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+<main class="max-w-7xl mx-auto px-4 md:px-6 py-8">
+
+  <!-- ── Upload Section ── -->
+  <section id="uploadSection" style="animation:fadeInUp .6s ease">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-5 h-5 text-sky-400"></i>
+          설문 데이터 업로드
+        </h2>
+        <p class="text-slate-500 text-sm mt-1">CSV, XLSX, JSON 형식의 고객 설문 데이터를 업로드하세요</p>
+      </div>
+    </div>
+
+    <div id="uploadZone" class="upload-zone" onclick="startUpload()" ondragover="event.preventDefault();this.classList.add('dragging')" ondragleave="this.classList.remove('dragging')" ondrop="event.preventDefault();this.classList.remove('dragging');startUpload()">
+      <div id="uploadContent">
+        <div style="width:80px;height:80px;margin:0 auto 20px;border-radius:50%;background:linear-gradient(135deg,rgba(14,165,233,.1),rgba(99,102,241,.1));border:2px solid rgba(56,189,248,.15);display:flex;align-items:center;justify-content:center;animation:float 3s ease-in-out infinite;">
+          <i data-lucide="cloud-upload" class="w-10 h-10 text-sky-400" style="opacity:.7"></i>
+        </div>
+        <p class="text-white text-lg font-semibold mb-2">파일을 여기에 드래그하거나 클릭하세요</p>
+        <p class="text-slate-500 text-sm mb-6">지원 형식: CSV, XLSX, JSON (최대 500MB)</p>
+        <button class="btn-primary" onclick="event.stopPropagation();startUpload()">
+          <i data-lucide="folder-open" class="w-4 h-4 inline mr-1" style="vertical-align:-2px"></i>
+          파일 선택
+        </button>
+        <div class="flex items-center justify-center gap-6 mt-6 text-xs text-slate-600">
+          <span class="flex items-center gap-1"><i data-lucide="shield-check" class="w-3 h-3"></i> 데이터 암호화</span>
+          <span class="flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> 개인정보 마스킹</span>
+          <span class="flex items-center gap-1"><i data-lucide="server" class="w-3 h-3"></i> 로컬 처리</span>
+        </div>
+      </div>
+
+      <!-- Upload Progress (hidden initially) -->
+      <div id="uploadProgress" style="display:none;">
+        <div class="spinner spinner-lg" style="margin:0 auto 20px;"></div>
+        <p class="text-white text-lg font-semibold mb-1" id="uploadStatusText">데이터 로딩 중...</p>
+        <p class="text-slate-400 text-sm mb-4" id="uploadSubText">설문 응답 데이터를 분석하고 있습니다</p>
+        <div class="progress-bar max-w-md mx-auto mb-3">
+          <div id="progressFill" class="progress-fill" style="width:0%"></div>
+        </div>
+        <p class="text-sky-400 text-sm font-mono" id="uploadCount">0 / 52,341</p>
+        <div class="flex items-center justify-center gap-4 mt-4 text-xs text-slate-500">
+          <span id="step1" class="flex items-center gap-1 transition-colors"><i data-lucide="file-search" class="w-3 h-3"></i> 데이터 검증</span>
+          <span id="step2" class="flex items-center gap-1 transition-colors"><i data-lucide="brain" class="w-3 h-3"></i> 감성분석</span>
+          <span id="step3" class="flex items-center gap-1 transition-colors"><i data-lucide="bar-chart-3" class="w-3 h-3"></i> 통계 생성</span>
+          <span id="step4" class="flex items-center gap-1 transition-colors"><i data-lucide="sparkles" class="w-3 h-3"></i> 인사이트 도출</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════ DASHBOARD (hidden initially) ═══════════════════════ -->
+  <section id="dashboard" style="display:none;">
+
+    <!-- ── Toolbar ── -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6" style="animation:fadeInUp .5s ease">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="layout-dashboard" class="w-5 h-5 text-sky-400"></i>
+          실시간 분석 대시보드
+        </h2>
+        <p class="text-slate-500 text-sm mt-1">52,341건 설문 응답 분석 완료 <span class="text-green-400 ml-1">&#10003;</span></p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Date Range Picker -->
+        <div class="flex items-center gap-1 px-3 py-2 rounded-lg text-xs cursor-pointer hover:border-sky-400/40 transition-colors" style="background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.12);" onclick="showDatePicker()">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span class="text-slate-300" id="dateRangeText">2025.01 - 2025.12</span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+        </div>
+        <!-- Refresh -->
+        <button class="btn-ghost flex items-center gap-1.5" onclick="refreshData()" id="refreshBtn">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="refreshIcon"></i>
+          새로고침
+        </button>
+        <!-- Export -->
+        <button class="btn-primary flex items-center gap-1.5 text-xs" onclick="exportExcel()" style="padding:8px 16px;">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          Excel 내보내기
+        </button>
+      </div>
+    </div>
+
+    <!-- ── KPI Cards ── -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="kpiGrid">
+      <div class="kpi-card" style="animation:fadeInUp .5s ease .1s both">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,rgba(56,189,248,.15),rgba(99,102,241,.15));">
+            <i data-lucide="file-text" class="w-5 h-5 text-sky-400"></i>
+          </div>
+          <span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3 text-green-400"></i>+12.3%</span>
+        </div>
+        <div class="text-2xl md:text-3xl font-bold text-white kpi-number" data-target="52341">0</div>
+        <div class="text-xs text-slate-500 mt-1">총 설문 수</div>
+      </div>
+      <div class="kpi-card" style="animation:fadeInUp .5s ease .2s both">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,rgba(34,197,94,.15),rgba(56,189,248,.15));">
+            <i data-lucide="smile" class="w-5 h-5 text-green-400"></i>
+          </div>
+          <span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3 text-green-400"></i>+3.2%</span>
+        </div>
+        <div class="text-2xl md:text-3xl font-bold text-green-400 kpi-number" data-target="65" data-suffix="%">0</div>
+        <div class="text-xs text-slate-500 mt-1">긍정 비율</div>
+      </div>
+      <div class="kpi-card" style="animation:fadeInUp .5s ease .3s both">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(251,146,60,.15));">
+            <i data-lucide="frown" class="w-5 h-5 text-red-400"></i>
+          </div>
+          <span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="trending-down" class="w-3 h-3 text-red-400"></i>-1.8%</span>
+        </div>
+        <div class="text-2xl md:text-3xl font-bold text-red-400 kpi-number" data-target="12" data-suffix="%">0</div>
+        <div class="text-xs text-slate-500 mt-1">부정 비율</div>
+      </div>
+      <div class="kpi-card" style="animation:fadeInUp .5s ease .4s both">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,rgba(167,139,250,.15),rgba(244,114,182,.15));">
+            <i data-lucide="star" class="w-5 h-5 text-violet-400"></i>
+          </div>
+          <span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="trending-up" class="w-3 h-3 text-green-400"></i>+0.3</span>
+        </div>
+        <div class="text-2xl md:text-3xl font-bold text-violet-400">
+          <span class="kpi-number" data-target="4.2" data-decimal="true">0</span><span class="text-lg text-slate-500">/5.0</span>
+        </div>
+        <div class="text-xs text-slate-500 mt-1">평균 만족도</div>
+      </div>
+    </div>
+
+    <!-- ── Charts Row ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
+      <!-- Sentiment Donut Chart -->
+      <div class="card p-6" style="animation:fadeInUp .5s ease .2s both">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-sky-400"></i>
+            감성 분석 분포
+          </h3>
+          <span class="text-xs text-slate-600">전체 기간</span>
+        </div>
+        <div class="flex items-center justify-center" style="min-height:200px;">
+          <div style="position:relative;width:180px;height:180px;">
+            <svg viewBox="0 0 36 36" style="width:180px;height:180px;transform:rotate(-90deg);">
+              <!-- Positive 65% -->
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke-width="3.5"
+                stroke="#22c55e" stroke-dasharray="65 35" stroke-dashoffset="0"
+                class="donut-segment" style="filter:drop-shadow(0 0 4px rgba(34,197,94,.3));animation:donutFill 1.5s ease forwards;--fill:65;">
+                <title>긍정 65%</title>
+              </circle>
+              <!-- Neutral 23% -->
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke-width="3.5"
+                stroke="#3b82f6" stroke-dasharray="23 77" stroke-dashoffset="-65"
+                class="donut-segment" style="filter:drop-shadow(0 0 4px rgba(59,130,246,.3));animation:donutFill 1.5s ease .3s forwards;--fill:23;">
+                <title>중립 23%</title>
+              </circle>
+              <!-- Negative 12% -->
+              <circle cx="18" cy="18" r="15.915" fill="none" stroke-width="3.5"
+                stroke="#ef4444" stroke-dasharray="12 88" stroke-dashoffset="-88"
+                class="donut-segment" style="filter:drop-shadow(0 0 4px rgba(239,68,68,.3));animation:donutFill 1.5s ease .6s forwards;--fill:12;">
+                <title>부정 12%</title>
+              </circle>
+            </svg>
+            <!-- Center Label -->
+            <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+              <span class="text-2xl font-bold text-white">65%</span>
+              <span class="text-xs text-slate-500">긍정률</span>
+            </div>
+          </div>
+        </div>
+        <!-- Legend -->
+        <div class="flex items-center justify-center gap-4 mt-4">
+          <div class="flex items-center gap-1.5 text-xs">
+            <div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+            <span class="text-slate-400">긍정 65%</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs">
+            <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+            <span class="text-slate-400">중립 23%</span>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs">
+            <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+            <span class="text-slate-400">부정 12%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Trends Bar Chart -->
+      <div class="card p-6 lg:col-span-2" style="animation:fadeInUp .5s ease .3s both">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="bar-chart-3" class="w-4 h-4 text-sky-400"></i>
+            월별 감성 트렌드
+          </h3>
+          <div class="flex items-center gap-3 text-xs">
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span> 긍정</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> 중립</span>
+            <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span> 부정</span>
+          </div>
+        </div>
+        <div id="barChart" style="min-height:200px;display:flex;align-items:flex-end;gap:6px;padding-top:20px;">
+          <!-- JS generated -->
+        </div>
+        <div class="flex justify-between mt-3 text-xs text-slate-600 px-1" id="barLabels">
+          <!-- JS generated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Word Cloud + AI Insights ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+      <!-- Word Cloud -->
+      <div class="card p-6" style="animation:fadeInUp .5s ease .4s both">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="hash" class="w-4 h-4 text-sky-400"></i>
+            핵심 키워드 분석
+          </h3>
+          <span class="text-xs text-slate-600">빈도 기반</span>
+        </div>
+        <div id="wordCloud" class="flex flex-wrap items-center justify-center gap-1 py-4" style="min-height:180px;">
+          <!-- JS generated -->
+        </div>
+      </div>
+
+      <!-- AI Insights -->
+      <div class="card p-6" style="animation:fadeInUp .5s ease .5s both">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-semibold text-white flex items-center gap-2">
+            <i data-lucide="sparkles" class="w-4 h-4 text-violet-400"></i>
+            AI 인사이트
+          </h3>
+          <span class="px-2 py-1 text-xs rounded-md font-medium" style="background:rgba(139,92,246,.12);color:#c4b5fd;">자동 생성</span>
+        </div>
+        <div id="insightsList">
+          <!-- JS generated -->
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Customer Care List ── -->
+    <div class="card" style="animation:fadeInUp .5s ease .6s both;overflow:hidden;">
+      <div class="p-6 pb-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+              <i data-lucide="users" class="w-5 h-5 text-sky-400"></i>
+              잠재 민원 고객 케어 리스트
+            </h3>
+            <p class="text-slate-500 text-xs mt-1">감성 분석 기반 선제적 고객 관리 대상자</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="btn-ghost text-xs active" data-filter="all" onclick="filterRisk('all',this)">전체 <span class="ml-1 text-slate-600" id="countAll">24</span></button>
+            <button class="btn-ghost text-xs" data-filter="high" onclick="filterRisk('high',this)">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-400 inline-block mr-1"></span>상 <span class="ml-1 text-slate-600" id="countHigh">0</span>
+            </button>
+            <button class="btn-ghost text-xs" data-filter="mid" onclick="filterRisk('mid',this)">
+              <span class="w-1.5 h-1.5 rounded-full bg-orange-400 inline-block mr-1"></span>중 <span class="ml-1 text-slate-600" id="countMid">0</span>
+            </button>
+            <button class="btn-ghost text-xs" data-filter="low" onclick="filterRisk('low',this)">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block mr-1"></span>하 <span class="ml-1 text-slate-600" id="countLow">0</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto;max-height:600px;overflow-y:auto;">
+        <table class="data-table" id="customerTable">
+          <thead>
+            <tr>
+              <th>고객번호</th>
+              <th>이름</th>
+              <th>지역</th>
+              <th>감성점수</th>
+              <th>위험등급</th>
+              <th>최근 문의</th>
+              <th>문의일자</th>
+            </tr>
+          </thead>
+          <tbody id="customerTableBody">
+            <!-- JS generated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ── Date Picker Modal ── -->
+<div id="datePickerModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeDatePicker()">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-base font-semibold text-white flex items-center gap-2">
+        <i data-lucide="calendar-range" class="w-4 h-4 text-sky-400"></i>
+        분석 기간 설정
+      </h3>
+      <button onclick="closeDatePicker()" class="text-slate-500 hover:text-white transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div>
+        <label class="text-xs text-slate-500 mb-1 block">시작일</label>
+        <input type="month" value="2025-01" class="w-full px-3 py-2 rounded-lg text-sm text-white" style="background:rgba(15,23,42,.8);border:1px solid rgba(148,163,184,.15);outline:none;" id="dateStart">
+      </div>
+      <div>
+        <label class="text-xs text-slate-500 mb-1 block">종료일</label>
+        <input type="month" value="2025-12" class="w-full px-3 py-2 rounded-lg text-sm text-white" style="background:rgba(15,23,42,.8);border:1px solid rgba(148,163,184,.15);outline:none;" id="dateEnd">
+      </div>
+    </div>
+    <div class="flex items-center gap-2 mb-4">
+      <button onclick="setQuickRange('q1')" class="btn-ghost text-xs flex-1">Q1</button>
+      <button onclick="setQuickRange('q2')" class="btn-ghost text-xs flex-1">Q2</button>
+      <button onclick="setQuickRange('q3')" class="btn-ghost text-xs flex-1">Q3</button>
+      <button onclick="setQuickRange('q4')" class="btn-ghost text-xs flex-1">Q4</button>
+      <button onclick="setQuickRange('all')" class="btn-ghost text-xs flex-1 active">전체</button>
+    </div>
+    <button onclick="applyDateRange()" class="btn-primary w-full">적용하기</button>
+  </div>
+</div>
+
+<!-- ── Customer Detail Modal ── -->
+<div id="customerModal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeCustomerModal()">
+  <div class="modal-box" id="customerModalContent">
+    <!-- JS generated -->
+  </div>
+</div>
+
+<!-- ── Toast Container ── -->
+<div id="toastContainer"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA GENERATION
+// ═══════════════════════════════════════════════════════════
+
+const LAST_NAMES = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황','안','송','류','전','홍','고','문','양','손','배','백','허','유','남','심','노','하','곽','성','차','주','우','구','민','탁','진','엄','채','원','천','방','공','현'];
+const FIRST_NAMES = ['민준','서준','도윤','예준','시우','하준','주원','지호','지후','준서','현우','건우','수아','서연','지우','하은','서윤','민서','하린','채원','지아','은서','다은','예원','수빈','지연','유진','소영','미경','현정','성호','영수','태영','재현','동훈','상우','진수','기영','용석','명진','정희','미숙','영자','순자','은주','혜진','성민','재영','광수','원빈'];
+const REGIONS = [
+  '서울 강남구','서울 서초구','서울 마포구','서울 송파구','서울 영등포구','서울 종로구','서울 강서구','서울 관악구',
+  '부산 해운대구','부산 수영구','부산 남구','부산 동래구',
+  '인천 남동구','인천 연수구','인천 부평구',
+  '대구 수성구','대구 달서구','대구 중구',
+  '광주 북구','광주 서구',
+  '대전 유성구','대전 서구',
+  '울산 남구','울산 중구',
+  '경기 성남시','경기 수원시','경기 고양시','경기 용인시','경기 화성시','경기 안양시',
+  '강원 춘천시','강원 원주시',
+  '충남 천안시','충북 청주시',
+  '전북 전주시','전남 여수시',
+  '경북 포항시','경남 창원시',
+  '제주 제주시','제주 서귀포시'
+];
+const INQUIRY_TYPES = [
+  '요금 과다 청구 문의','전력 공급 불안정 민원','검침 오류 신고','정전 피해 보상 요청',
+  '요금 할인 문의','전기 안전 점검 요청','스마트미터 오류 신고','전기차 충전 요금 문의',
+  '신규 전기 신청','명의 변경 요청','요금 납부 방법 문의','에너지 절약 상담',
+  '고압적 응대 불만','처리 지연 불만','답변 미흡 불만','재발 문의','시설물 파손 신고',
+  '전력 품질 개선 요청','야간 작업 소음 민원','공사 일정 문의'
+];
+
+function genCustomerId(){
+  return 'KE'+String(Math.floor(Math.random()*90000000)+10000000);
+}
+function genName(){
+  return LAST_NAMES[Math.floor(Math.random()*LAST_NAMES.length)] + FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)];
+}
+function genRegion(){
+  return REGIONS[Math.floor(Math.random()*REGIONS.length)];
+}
+function genInquiry(){
+  return INQUIRY_TYPES[Math.floor(Math.random()*INQUIRY_TYPES.length)];
+}
+function genDate(){
+  const m = Math.floor(Math.random()*12)+1;
+  const d = Math.floor(Math.random()*28)+1;
+  return `2025.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')}`;
+}
+function genSentimentScore(riskLevel){
+  if(riskLevel==='high') return (Math.random()*20+5).toFixed(1);
+  if(riskLevel==='mid') return (Math.random()*20+30).toFixed(1);
+  return (Math.random()*25+55).toFixed(1);
+}
+
+let customers = [];
+function generateCustomers(){
+  customers = [];
+  const riskDist = [];
+  for(let i=0;i<8;i++) riskDist.push('high');
+  for(let i=0;i<9;i++) riskDist.push('mid');
+  for(let i=0;i<7;i++) riskDist.push('low');
+  // shuffle
+  for(let i=riskDist.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [riskDist[i],riskDist[j]]=[riskDist[j],riskDist[i]];
+  }
+  for(let i=0;i<24;i++){
+    const risk = riskDist[i];
+    customers.push({
+      id: genCustomerId(),
+      name: genName(),
+      region: genRegion(),
+      score: parseFloat(genSentimentScore(risk)),
+      risk: risk,
+      inquiry: genInquiry(),
+      date: genDate(),
+      phone: `010-${Math.floor(Math.random()*9000+1000)}-${Math.floor(Math.random()*9000+1000)}`,
+      email: `user${Math.floor(Math.random()*999)}@example.com`,
+      visits: Math.floor(Math.random()*15)+1,
+      lastSurvey: (Math.random()*4+1).toFixed(1)
+    });
+  }
+  customers.sort((a,b)=>a.score-b.score);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MONTHLY TREND DATA
+// ═══════════════════════════════════════════════════════════
+
+const monthlyData = [
+  {month:'1월', pos:61, neu:25, neg:14},
+  {month:'2월', pos:58, neu:27, neg:15},
+  {month:'3월', pos:60, neu:26, neg:14},
+  {month:'4월', pos:63, neu:24, neg:13},
+  {month:'5월', pos:62, neu:25, neg:13},
+  {month:'6월', pos:64, neu:23, neg:13},
+  {month:'7월', pos:60, neu:26, neg:14},
+  {month:'8월', pos:63, neu:24, neg:13},
+  {month:'9월', pos:66, neu:22, neg:12},
+  {month:'10월',pos:67, neu:22, neg:11},
+  {month:'11월',pos:68, neu:21, neg:11},
+  {month:'12월',pos:65, neu:23, neg:12},
+];
+
+// ═══════════════════════════════════════════════════════════
+// WORD CLOUD DATA
+// ═══════════════════════════════════════════════════════════
+
+const wordCloudData = [
+  {text:'불편함', size:26, color:'#f87171', bg:'rgba(248,113,113,.12)', border:'rgba(248,113,113,.25)'},
+  {text:'요금 문의', size:30, color:'#fb923c', bg:'rgba(251,146,60,.12)', border:'rgba(251,146,60,.25)'},
+  {text:'친절한 응대', size:28, color:'#34d399', bg:'rgba(52,211,153,.12)', border:'rgba(52,211,153,.25)'},
+  {text:'처리 지연', size:22, color:'#f87171', bg:'rgba(248,113,113,.12)', border:'rgba(248,113,113,.25)'},
+  {text:'고압적 태도', size:18, color:'#ef4444', bg:'rgba(239,68,68,.12)', border:'rgba(239,68,68,.25)'},
+  {text:'신속 해결', size:24, color:'#22c55e', bg:'rgba(34,197,94,.12)', border:'rgba(34,197,94,.25)'},
+  {text:'민원 접수', size:20, color:'#38bdf8', bg:'rgba(56,189,248,.12)', border:'rgba(56,189,248,.25)'},
+  {text:'개선 요청', size:22, color:'#a78bfa', bg:'rgba(167,139,250,.12)', border:'rgba(167,139,250,.25)'},
+  {text:'만족도 높음', size:26, color:'#34d399', bg:'rgba(52,211,153,.12)', border:'rgba(52,211,153,.25)'},
+  {text:'재방문 의향', size:20, color:'#22c55e', bg:'rgba(34,197,94,.12)', border:'rgba(34,197,94,.25)'},
+  {text:'전기요금', size:24, color:'#fbbf24', bg:'rgba(251,191,36,.12)', border:'rgba(251,191,36,.25)'},
+  {text:'정전 불만', size:19, color:'#ef4444', bg:'rgba(239,68,68,.12)', border:'rgba(239,68,68,.25)'},
+  {text:'안전 점검', size:16, color:'#38bdf8', bg:'rgba(56,189,248,.12)', border:'rgba(56,189,248,.25)'},
+  {text:'빠른 응답', size:21, color:'#34d399', bg:'rgba(52,211,153,.12)', border:'rgba(52,211,153,.25)'},
+  {text:'절차 복잡', size:17, color:'#fb923c', bg:'rgba(251,146,60,.12)', border:'rgba(251,146,60,.25)'},
+];
+
+// ═══════════════════════════════════════════════════════════
+// AI INSIGHTS DATA
+// ═══════════════════════════════════════════════════════════
+
+const insights = [
+  {
+    icon:'alert-triangle', iconColor:'#f87171',
+    title:'부정 감성 핵심 요인',
+    text:'이번 달 부정 감성 12% 중 <strong class="text-orange-400">\'요금 문의\'</strong> 관련이 67%를 차지하며, 전월 대비 2.3%p 감소하였습니다.',
+    trend:'down', trendColor:'#22c55e', trendText:'개선 추세'
+  },
+  {
+    icon:'trending-up', iconColor:'#22c55e',
+    title:'긍정 감성 상승 요인',
+    text:'<strong class="text-green-400">\'친절한 응대\'</strong> 키워드가 전월 대비 18% 증가하였으며, 콜센터 교육 프로그램 도입 이후 지속적인 개선세를 보이고 있습니다.',
+    trend:'up', trendColor:'#22c55e', trendText:'+18% 상승'
+  },
+  {
+    icon:'clock', iconColor:'#fb923c',
+    title:'처리 시간 분석',
+    text:'민원 평균 처리 시간이 <strong class="text-sky-400">3.2일</strong>에서 <strong class="text-green-400">2.1일</strong>로 단축되었습니다. 그러나 \'시설물 관련\' 민원의 처리 시간은 여전히 <strong class="text-orange-400">5.8일</strong>로 개선이 필요합니다.',
+    trend:'down', trendColor:'#22c55e', trendText:'-34% 단축'
+  },
+  {
+    icon:'users', iconColor:'#a78bfa',
+    title:'고위험 고객 추이',
+    text:'감성점수 30점 이하 고위험군 고객이 <strong class="text-red-400">8명</strong> 감지되었습니다. 서울 강남 지역(3명)에 집중되어 있으며, 주요 민원은 \'요금 과다 청구\' 관련입니다.',
+    trend:'up', trendColor:'#f87171', trendText:'주의 필요'
+  },
+  {
+    icon:'zap', iconColor:'#fbbf24',
+    title:'예측 인사이트',
+    text:'현재 추세 유지 시 다음 분기 긍정률 <strong class="text-green-400">68.5%</strong> 달성 예상. 다만 <strong class="text-orange-400">하계 전력 수요기(7~8월)</strong> 정전 관련 불만이 증가할 수 있어 선제적 대응이 권고됩니다.',
+    trend:'up', trendColor:'#fbbf24', trendText:'예측 분석'
+  }
+];
+
+// ═══════════════════════════════════════════════════════════
+// UPLOAD & PROGRESS
+// ═══════════════════════════════════════════════════════════
+
+let isUploaded = false;
+
+function startUpload(){
+  if(isUploaded) return;
+  const zone = document.getElementById('uploadZone');
+  const content = document.getElementById('uploadContent');
+  const progress = document.getElementById('uploadProgress');
+
+  zone.classList.add('uploading');
+  content.style.display = 'none';
+  progress.style.display = 'block';
+
+  const fill = document.getElementById('progressFill');
+  const countEl = document.getElementById('uploadCount');
+  const statusText = document.getElementById('uploadStatusText');
+  const subText = document.getElementById('uploadSubText');
+  const total = 52341;
+
+  const steps = [
+    {at:15, step:'step1', status:'데이터 검증 중...', sub:'파일 무결성 및 형식을 확인하고 있습니다'},
+    {at:40, step:'step2', status:'AI 감성분석 수행 중...', sub:'NLP 모델이 설문 응답을 분석하고 있습니다'},
+    {at:70, step:'step3', status:'통계 데이터 생성 중...', sub:'월별 추이 및 핵심 지표를 산출하고 있습니다'},
+    {at:90, step:'step4', status:'인사이트 도출 중...', sub:'AI가 핵심 패턴과 이상 징후를 탐지하고 있습니다'},
+  ];
+
+  let currentPct = 0;
+  const duration = 3500;
+  const interval = 30;
+  const increment = 100 / (duration / interval);
+  let stepIdx = 0;
+
+  const timer = setInterval(()=>{
+    currentPct = Math.min(currentPct + increment + Math.random()*0.5, 100);
+    fill.style.width = currentPct + '%';
+    const currentCount = Math.floor((currentPct/100)*total);
+    countEl.textContent = currentCount.toLocaleString() + ' / 52,341';
+
+    while(stepIdx < steps.length && currentPct >= steps[stepIdx].at){
+      const s = steps[stepIdx];
+      document.getElementById(s.step).style.color = '#38bdf8';
+      statusText.textContent = s.status;
+      subText.textContent = s.sub;
+      stepIdx++;
+    }
+
+    if(currentPct >= 100){
+      clearInterval(timer);
+      countEl.textContent = '52,341 / 52,341';
+      statusText.textContent = '분석 완료!';
+      subText.textContent = '대시보드로 이동합니다...';
+      fill.style.width = '100%';
+      setTimeout(showDashboard, 800);
+    }
+  }, interval);
+}
+
+function showDashboard(){
+  isUploaded = true;
+  document.getElementById('uploadSection').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+
+  generateCustomers();
+  renderBarChart();
+  renderWordCloud();
+  renderInsights();
+  renderCustomerTable();
+  animateKPIs();
+  updateFilterCounts();
+}
+
+// ═══════════════════════════════════════════════════════════
+// KPI COUNTER ANIMATION
+// ═══════════════════════════════════════════════════════════
+
+function animateKPIs(){
+  document.querySelectorAll('.kpi-number').forEach(el=>{
+    const target = parseFloat(el.dataset.target);
+    const isDecimal = el.dataset.decimal === 'true';
+    const suffix = el.dataset.suffix || '';
+    const duration = 1500;
+    const start = Date.now();
+
+    function update(){
+      const elapsed = Date.now() - start;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = target * eased;
+
+      if(isDecimal){
+        el.textContent = current.toFixed(1);
+      } else if(target > 1000){
+        el.textContent = Math.floor(current).toLocaleString() + suffix;
+      } else {
+        el.textContent = Math.floor(current) + suffix;
+      }
+
+      if(progress < 1) requestAnimationFrame(update);
+      else {
+        if(isDecimal) el.textContent = target.toFixed(1);
+        else if(target > 1000) el.textContent = target.toLocaleString() + suffix;
+        else el.textContent = target + suffix;
+      }
+    }
+    requestAnimationFrame(update);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// BAR CHART
+// ═══════════════════════════════════════════════════════════
+
+function renderBarChart(){
+  const container = document.getElementById('barChart');
+  const labelsContainer = document.getElementById('barLabels');
+  container.innerHTML = '';
+  labelsContainer.innerHTML = '';
+
+  const maxVal = 100;
+  const chartHeight = 180;
+
+  monthlyData.forEach((d,i) => {
+    const group = document.createElement('div');
+    group.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;';
+
+    // Stacked bar
+    const bar = document.createElement('div');
+    bar.style.cssText = `width:100%;max-width:32px;height:${chartHeight}px;display:flex;flex-direction:column;justify-content:flex-end;border-radius:4px 4px 0 0;overflow:hidden;opacity:0;animation:fadeInUp .4s ease ${i*0.06}s forwards;`;
+    bar.title = `${d.month}: 긍정 ${d.pos}% | 중립 ${d.neu}% | 부정 ${d.neg}%`;
+
+    const negBar = document.createElement('div');
+    negBar.style.cssText = `width:100%;height:${(d.neg/maxVal)*chartHeight}px;background:#ef4444;transition:height .5s;min-height:2px;`;
+    const neuBar = document.createElement('div');
+    neuBar.style.cssText = `width:100%;height:${(d.neu/maxVal)*chartHeight}px;background:#3b82f6;transition:height .5s;min-height:2px;`;
+    const posBar = document.createElement('div');
+    posBar.style.cssText = `width:100%;height:${(d.pos/maxVal)*chartHeight}px;background:#22c55e;transition:height .5s;border-radius:4px 4px 0 0;min-height:2px;`;
+
+    bar.appendChild(posBar);
+    bar.appendChild(neuBar);
+    bar.appendChild(negBar);
+    group.appendChild(bar);
+    container.appendChild(group);
+
+    const label = document.createElement('span');
+    label.textContent = d.month;
+    label.style.cssText = 'flex:1;text-align:center;';
+    labelsContainer.appendChild(label);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// WORD CLOUD
+// ═══════════════════════════════════════════════════════════
+
+function renderWordCloud(){
+  const container = document.getElementById('wordCloud');
+  container.innerHTML = '';
+
+  const shuffled = [...wordCloudData].sort(()=>Math.random()-0.5);
+
+  shuffled.forEach((w,i)=>{
+    const el = document.createElement('span');
+    const rot = (Math.random()*10-5);
+    el.className = 'word-cloud-item';
+    el.style.cssText = `font-size:${w.size}px;color:${w.color};background:${w.bg};border:1px solid ${w.border};--rot:${rot}deg;animation-delay:${i*0.08+0.3}s;font-weight:${w.size>24?'700':'500'};`;
+    el.textContent = w.text;
+    el.title = `"${w.text}" - 빈도수: ${Math.floor(Math.random()*3000+500)}회`;
+    container.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// AI INSIGHTS
+// ═══════════════════════════════════════════════════════════
+
+function renderInsights(){
+  const container = document.getElementById('insightsList');
+  container.innerHTML = '';
+
+  insights.forEach((ins,i) => {
+    const div = document.createElement('div');
+    div.className = 'insight-item';
+    div.style.cssText = `animation:slideInRight .5s ease ${i*0.12+0.3}s both;`;
+
+    const trendIcon = ins.trend === 'up' ? 'trending-up' : 'trending-down';
+
+    div.innerHTML = `
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style="background:${ins.iconColor}15;border:1px solid ${ins.iconColor}30;">
+          <i data-lucide="${ins.icon}" class="w-4 h-4" style="color:${ins.iconColor}"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-semibold text-white">${ins.title}</span>
+            <span class="flex items-center gap-1 text-xs flex-shrink-0 ml-2" style="color:${ins.trendColor}">
+              <i data-lucide="${trendIcon}" class="w-3 h-3"></i>
+              ${ins.trendText}
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">${ins.text}</p>
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  lucide.createIcons();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER TABLE
+// ═══════════════════════════════════════════════════════════
+
+let currentFilter = 'all';
+
+function renderCustomerTable(filter){
+  filter = filter || currentFilter;
+  const tbody = document.getElementById('customerTableBody');
+  tbody.innerHTML = '';
+
+  const filtered = filter === 'all' ? customers : customers.filter(c=>c.risk===filter);
+
+  filtered.forEach((c,i)=>{
+    const tr = document.createElement('tr');
+    tr.style.cssText = `animation:fadeInUp .3s ease ${i*0.03}s both;`;
+    tr.onclick = ()=>showCustomerDetail(c);
+
+    const riskLabel = c.risk==='high'?'상':c.risk==='mid'?'중':'하';
+    const riskClass = c.risk==='high'?'risk-high':c.risk==='mid'?'risk-mid':'risk-low';
+
+    // Score bar
+    const scoreColor = c.score < 30 ? '#ef4444' : c.score < 50 ? '#fb923c' : '#22c55e';
+
+    tr.innerHTML = `
+      <td class="font-mono text-xs text-slate-500">${c.id}</td>
+      <td class="font-medium text-white">${c.name}</td>
+      <td class="text-slate-400">${c.region}</td>
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="w-16 h-1.5 rounded-full" style="background:rgba(30,41,59,.8);">
+            <div class="h-full rounded-full" style="background:${scoreColor};width:${c.score}%;transition:width .5s;"></div>
+          </div>
+          <span class="text-xs font-mono" style="color:${scoreColor}">${c.score}</span>
+        </div>
+      </td>
+      <td><span class="risk-badge ${riskClass}">${riskLabel}</span></td>
+      <td class="text-slate-400 text-xs" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.inquiry}</td>
+      <td class="text-slate-500 text-xs font-mono">${c.date}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function filterRisk(filter, btn){
+  currentFilter = filter;
+  // Update active button
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCustomerTable(filter);
+}
+
+function updateFilterCounts(){
+  document.getElementById('countAll').textContent = customers.length;
+  document.getElementById('countHigh').textContent = customers.filter(c=>c.risk==='high').length;
+  document.getElementById('countMid').textContent = customers.filter(c=>c.risk==='mid').length;
+  document.getElementById('countLow').textContent = customers.filter(c=>c.risk==='low').length;
+}
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER DETAIL MODAL
+// ═══════════════════════════════════════════════════════════
+
+function showCustomerDetail(c){
+  const modal = document.getElementById('customerModal');
+  const content = document.getElementById('customerModalContent');
+
+  const riskLabel = c.risk==='high'?'상':c.risk==='mid'?'중':'하';
+  const riskClass = c.risk==='high'?'risk-high':c.risk==='mid'?'risk-mid':'risk-low';
+  const scoreColor = c.score < 30 ? '#ef4444' : c.score < 50 ? '#fb923c' : '#22c55e';
+
+  const riskAction = c.risk === 'high'
+    ? '즉시 전담 매니저 배정 및 개인화된 사과 연락 권고'
+    : c.risk === 'mid'
+    ? '1주 이내 만족도 향상 프로그램 안내 권고'
+    : '정기 만족도 모니터링 유지';
+
+  // Generate fake interaction history
+  const historyItems = [
+    {date: '2025.12.15', type: '전화', summary: c.inquiry, sentiment: c.score < 40 ? '부정' : '중립'},
+    {date: '2025.11.28', type: '온라인', summary: '요금 명세 확인 요청', sentiment: '중립'},
+    {date: '2025.10.10', type: '방문', summary: '계약 조건 변경 문의', sentiment: '긍정'},
+  ];
+
+  content.innerHTML = `
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-lg font-bold text-white flex items-center gap-2">
+        <i data-lucide="user-circle" class="w-5 h-5 text-sky-400"></i>
+        고객 상세 정보
+      </h3>
+      <button onclick="closeCustomerModal()" class="text-slate-500 hover:text-white transition-colors">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- Profile Header -->
+    <div class="flex items-center gap-4 p-4 rounded-xl mb-5" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
+      <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold" style="background:linear-gradient(135deg,rgba(56,189,248,.2),rgba(99,102,241,.2));color:#38bdf8;border:2px solid rgba(56,189,248,.2);">
+        ${c.name.charAt(0)}
+      </div>
+      <div class="flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="text-white font-semibold text-lg">${c.name}</span>
+          <span class="risk-badge ${riskClass} text-xs">${riskLabel}</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-500">
+          <span class="font-mono">${c.id}</span>
+          <span>${c.region}</span>
+        </div>
+      </div>
+      <div class="text-right">
+        <div class="text-3xl font-bold" style="color:${scoreColor}">${c.score}</div>
+        <div class="text-xs text-slate-500">감성점수</div>
+      </div>
+    </div>
+
+    <!-- Info Grid -->
+    <div class="grid grid-cols-2 gap-3 mb-5">
+      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+        <div class="text-xs text-slate-500 mb-1">연락처</div>
+        <div class="text-sm text-slate-300">${c.phone}</div>
+      </div>
+      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+        <div class="text-xs text-slate-500 mb-1">이메일</div>
+        <div class="text-sm text-slate-300">${c.email}</div>
+      </div>
+      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+        <div class="text-xs text-slate-500 mb-1">총 문의 횟수</div>
+        <div class="text-sm text-white font-semibold">${c.visits}회</div>
+      </div>
+      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+        <div class="text-xs text-slate-500 mb-1">최근 설문 평점</div>
+        <div class="text-sm text-white font-semibold">${c.lastSurvey}/5.0</div>
+      </div>
+    </div>
+
+    <!-- Score Bar Visualization -->
+    <div class="mb-5">
+      <div class="text-xs text-slate-500 mb-2">감성 점수 분포</div>
+      <div class="relative h-3 rounded-full" style="background:linear-gradient(90deg,#ef4444,#fb923c,#fbbf24,#22c55e);opacity:.3;">
+      </div>
+      <div class="relative" style="margin-top:-12px;">
+        <div class="w-4 h-4 rounded-full border-2 border-white" style="background:${scoreColor};position:absolute;left:${c.score}%;transform:translateX(-50%);box-shadow:0 0 8px ${scoreColor};"></div>
+      </div>
+      <div class="flex justify-between text-xs text-slate-600 mt-3">
+        <span>위험</span><span>주의</span><span>보통</span><span>양호</span>
+      </div>
+    </div>
+
+    <!-- AI Recommendation -->
+    <div class="p-4 rounded-xl mb-5" style="background:linear-gradient(135deg,rgba(139,92,246,.08),rgba(56,189,248,.08));border:1px solid rgba(139,92,246,.15);">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="sparkles" class="w-4 h-4 text-violet-400"></i>
+        <span class="text-sm font-semibold text-white">AI 권고 조치</span>
+      </div>
+      <p class="text-xs text-slate-400 leading-relaxed">${riskAction}</p>
+    </div>
+
+    <!-- Recent Interactions -->
+    <div>
+      <div class="text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wide">최근 상호작용 이력</div>
+      ${historyItems.map(h=>{
+        const sentColor = h.sentiment==='부정'?'#f87171':h.sentiment==='긍정'?'#22c55e':'#94a3b8';
+        return `
+          <div class="flex items-center gap-3 py-2.5 border-b" style="border-color:rgba(148,163,184,.06);">
+            <span class="text-xs text-slate-500 font-mono w-20 flex-shrink-0">${h.date}</span>
+            <span class="px-2 py-0.5 rounded text-xs flex-shrink-0" style="background:rgba(56,189,248,.1);color:#7dd3fc;">${h.type}</span>
+            <span class="text-xs text-slate-400 flex-1 truncate">${h.summary}</span>
+            <span class="text-xs flex-shrink-0" style="color:${sentColor}">${h.sentiment}</span>
+          </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex items-center gap-2 mt-6">
+      <button class="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('해당 고객에게 담당 매니저가 배정되었습니다')">
+        <i data-lucide="user-check" class="w-4 h-4"></i>
+        매니저 배정
+      </button>
+      <button class="btn-ghost flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('케어 프로그램 안내가 발송되었습니다')">
+        <i data-lucide="mail" class="w-4 h-4"></i>
+        케어 안내 발송
+      </button>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+  lucide.createIcons();
+}
+
+function closeCustomerModal(){
+  document.getElementById('customerModal').style.display = 'none';
+}
+
+// ═══════════════════════════════════════════════════════════
+// DATE PICKER
+// ═══════════════════════════════════════════════════════════
+
+function showDatePicker(){
+  document.getElementById('datePickerModal').style.display = 'flex';
+  lucide.createIcons();
+}
+
+function closeDatePicker(){
+  document.getElementById('datePickerModal').style.display = 'none';
+}
+
+function setQuickRange(range){
+  const s = document.getElementById('dateStart');
+  const e = document.getElementById('dateEnd');
+  const btns = document.querySelectorAll('#datePickerModal .btn-ghost');
+  btns.forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  switch(range){
+    case 'q1': s.value='2025-01'; e.value='2025-03'; break;
+    case 'q2': s.value='2025-04'; e.value='2025-06'; break;
+    case 'q3': s.value='2025-07'; e.value='2025-09'; break;
+    case 'q4': s.value='2025-10'; e.value='2025-12'; break;
+    case 'all': s.value='2025-01'; e.value='2025-12'; break;
+  }
+}
+
+function applyDateRange(){
+  const s = document.getElementById('dateStart').value;
+  const e = document.getElementById('dateEnd').value;
+  const sLabel = s.replace('-','.');
+  const eLabel = e.replace('-','.');
+  document.getElementById('dateRangeText').textContent = sLabel + ' - ' + eLabel;
+  closeDatePicker();
+  showToast('분석 기간이 변경되었습니다: ' + sLabel + ' ~ ' + eLabel);
+}
+
+// ═══════════════════════════════════════════════════════════
+// REFRESH
+// ═══════════════════════════════════════════════════════════
+
+function refreshData(){
+  const btn = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  btn.disabled = true;
+  icon.style.animation = 'spin .7s linear infinite';
+
+  setTimeout(()=>{
+    generateCustomers();
+    renderCustomerTable();
+    updateFilterCounts();
+    renderWordCloud();
+
+    // Reset active filter
+    document.querySelectorAll('[data-filter]').forEach(b=>b.classList.remove('active'));
+    document.querySelector('[data-filter="all"]').classList.add('active');
+    currentFilter = 'all';
+
+    icon.style.animation = '';
+    btn.disabled = false;
+
+    showToast('데이터가 새로고침 되었습니다');
+  }, 1200);
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════
+
+function exportExcel(){
+  showToast('CS_분석_리포트_2025.xlsx 다운로드 완료', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════════
+
+function showToast(message, type='success'){
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.innerHTML = `
+    <i data-lucide="check-circle" class="w-5 h-5" style="flex-shrink:0"></i>
+    <span>${message}</span>
+  `;
+  container.appendChild(toast);
+  lucide.createIcons();
+
+  setTimeout(()=>{
+    toast.classList.add('hiding');
+    setTimeout(()=>toast.remove(), 300);
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════════
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){
+    closeCustomerModal();
+    closeDatePicker();
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  lucide.createIcons();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>영상 분석 오결선 판별 | AI Wiring Inspection</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;color:#e2e8f0;min-height:100vh;overflow-x:hidden;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:#0f172a;}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px;}
+
+/* ── Animations ── */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes scanVertical{0%{top:0;opacity:.8}50%{opacity:1}100%{top:calc(100% - 2px);opacity:.8}}
+@keyframes scanHorizontal{0%{left:0;opacity:.8}50%{opacity:1}100%{left:calc(100% - 2px);opacity:.8}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes flashRed{0%,100%{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.6)}50%{background:rgba(239,68,68,.35);border-color:rgba(239,68,68,1)}}
+@keyframes speakerPulse{0%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.7}100%{transform:scale(1);opacity:1}}
+@keyframes waveBar{0%,100%{height:4px}50%{height:18px}}
+@keyframes progressSweep{0%{width:0}100%{width:100%}}
+@keyframes boxAppear{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+@keyframes cornerFlash{0%,100%{border-color:rgba(250,204,21,.7)}50%{border-color:rgba(250,204,21,.2)}}
+@keyframes glowYellow{0%,100%{box-shadow:0 0 8px rgba(250,204,21,.3)}50%{box-shadow:0 0 20px rgba(250,204,21,.6)}}
+@keyframes slideDown{from{max-height:0;opacity:0}to{max-height:600px;opacity:1}}
+@keyframes dotPulse{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.scan-line-v{position:absolute;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,rgba(250,204,21,.7),rgba(250,204,21,.9),rgba(250,204,21,.7),transparent);animation:scanVertical 2.5s ease-in-out infinite;z-index:5;pointer-events:none;}
+.scan-line-h{position:absolute;top:0;height:100%;width:2px;background:linear-gradient(180deg,transparent,rgba(250,204,21,.7),rgba(250,204,21,.9),rgba(250,204,21,.7),transparent);animation:scanHorizontal 3.2s ease-in-out infinite;z-index:5;pointer-events:none;}
+
+.grid-overlay{position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(250,204,21,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(250,204,21,.06) 1px, transparent 1px);
+  background-size:25% 25%;
+  z-index:3;pointer-events:none;}
+
+.corner-bracket{position:absolute;width:24px;height:24px;z-index:6;pointer-events:none;}
+.corner-bracket.tl{top:12px;left:12px;border-top:2px solid rgba(250,204,21,.7);border-left:2px solid rgba(250,204,21,.7);animation:cornerFlash 1.5s infinite;}
+.corner-bracket.tr{top:12px;right:12px;border-top:2px solid rgba(250,204,21,.7);border-right:2px solid rgba(250,204,21,.7);animation:cornerFlash 1.5s infinite .2s;}
+.corner-bracket.bl{bottom:12px;left:12px;border-bottom:2px solid rgba(250,204,21,.7);border-left:2px solid rgba(250,204,21,.7);animation:cornerFlash 1.5s infinite .4s;}
+.corner-bracket.br{bottom:12px;right:12px;border-bottom:2px solid rgba(250,204,21,.7);border-right:2px solid rgba(250,204,21,.7);animation:cornerFlash 1.5s infinite .6s;}
+
+.detection-box{position:absolute;border:2px solid;border-radius:3px;animation:boxAppear .4s ease-out;z-index:10;pointer-events:none;}
+.detection-box .label{position:absolute;top:-20px;left:-1px;font-size:10px;padding:1px 6px;border-radius:2px;white-space:nowrap;font-weight:600;}
+
+.wire-slot{transition:all .3s ease;border:2px solid transparent;border-radius:8px;padding:8px;position:relative;}
+.wire-slot.ok{border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.06);}
+.wire-slot.error{animation:flashRed 1s ease infinite;border-color:rgba(239,68,68,.6);background:rgba(239,68,68,.15);}
+
+.speaker-icon.speaking{animation:speakerPulse .6s ease infinite;}
+.wave-bar{width:3px;background:#facc15;border-radius:2px;animation:waveBar .5s ease infinite;display:inline-block;margin:0 1px;vertical-align:middle;}
+
+.scenario-btn{border:1px solid rgba(148,163,184,.2);color:#94a3b8;transition:all .25s;cursor:pointer;}
+.scenario-btn:hover{border-color:rgba(250,204,21,.5);color:#facc15;}
+.scenario-btn.active{border-color:#facc15;color:#facc15;background:rgba(250,204,21,.1);box-shadow:0 0 12px rgba(250,204,21,.15);}
+
+.section-card{background:linear-gradient(145deg,#0f172a,#1a2540);border:1px solid rgba(148,163,184,.1);border-radius:12px;overflow:hidden;}
+.section-card:hover{border-color:rgba(250,204,21,.25);}
+
+.history-row{border-bottom:1px solid rgba(148,163,184,.06);transition:background .2s;}
+.history-row:hover{background:rgba(250,204,21,.03);}
+
+.expand-section{overflow:hidden;transition:max-height .4s ease, opacity .3s ease;max-height:0;opacity:0;}
+.expand-section.open{max-height:800px;opacity:1;}
+
+.capture-btn{background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;font-weight:700;transition:all .3s;position:relative;overflow:hidden;}
+.capture-btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(245,158,11,.35);}
+.capture-btn:active{transform:translateY(0);}
+.capture-btn.analyzing{background:linear-gradient(135deg,#374151,#4b5563);color:#9ca3af;pointer-events:none;}
+
+.progress-bar{height:3px;background:rgba(250,204,21,.15);border-radius:2px;overflow:hidden;margin-top:8px;}
+.progress-bar .fill{height:100%;background:linear-gradient(90deg,#f59e0b,#facc15);border-radius:2px;animation:progressSweep 2s ease-out forwards;}
+
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+.status-badge.ok{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3);}
+.status-badge.error{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3);}
+
+.tts-btn{border:1px solid rgba(250,204,21,.3);color:#facc15;background:rgba(250,204,21,.08);transition:all .2s;cursor:pointer;}
+.tts-btn:hover{background:rgba(250,204,21,.18);border-color:rgba(250,204,21,.6);}
+
+.nav-back{display:inline-flex;align-items:center;gap:6px;color:#94a3b8;text-decoration:none;transition:color .2s;font-size:14px;}
+.nav-back:hover{color:#facc15;}
+
+.stat-card{background:linear-gradient(145deg,#0f172a,#1e293b);border:1px solid rgba(148,163,184,.1);border-radius:10px;padding:16px;text-align:center;}
+.stat-card .num{font-size:28px;font-weight:700;line-height:1;}
+
+.dot-loading span{display:inline-block;width:8px;height:8px;border-radius:50%;background:#facc15;animation:dotPulse 1.4s infinite ease-in-out both;margin:0 2px;}
+.dot-loading span:nth-child(1){animation-delay:-.32s}
+.dot-loading span:nth-child(2){animation-delay:-.16s}
+
+.tab-btn{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;border:1px solid transparent;color:#94a3b8;}
+.tab-btn:hover{color:#e2e8f0;}
+.tab-btn.active{background:rgba(250,204,21,.1);border-color:rgba(250,204,21,.4);color:#facc15;}
+
+/* mobile bottom nav */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.95);backdrop-filter:blur(10px);border-top:1px solid rgba(148,163,184,.1);z-index:50;padding:6px 0 env(safe-area-inset-bottom,6px);}
+.bottom-nav-btn{display:flex;flex-direction:column;align-items:center;gap:2px;color:#64748b;font-size:10px;transition:color .2s;cursor:pointer;padding:4px 12px;border:none;background:none;}
+.bottom-nav-btn.active{color:#facc15;}
+.bottom-nav-btn:hover{color:#fbbf24;}
+
+.page{display:none;animation:fadeInUp .4s ease;}
+.page.active{display:block;}
+</style>
+</head>
+<body>
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- Top Navigation Bar -->
+<nav class="sticky top-0 z-50 border-b border-slate-800/80" style="background:rgba(7,11,22,.92);backdrop-filter:blur(12px);">
+  <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="nav-back">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center">
+            <i data-lucide="scan-eye" class="w-4 h-4 text-black"></i>
+          </div>
+          <h1 class="text-sm font-bold text-white">영상 분석 오결선 판별</h1>
+        </div>
+        <p class="text-[10px] text-slate-500 ml-9">AI Wiring Inspection &middot; YOLOv8</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-[10px] px-2 py-0.5 rounded-full bg-green-500/15 text-green-400 border border-green-500/30 font-medium">LIVE</span>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="max-w-lg mx-auto px-4 pt-3 pb-24" id="appRoot">
+
+  <!-- Page: Camera / Inspection -->
+  <div class="page active" id="pageCam">
+
+    <!-- Scenario Selector -->
+    <div class="flex gap-2 mb-3 overflow-x-auto pb-1" id="scenarioBtns">
+      <button class="scenario-btn active rounded-lg px-3 py-1.5 text-xs whitespace-nowrap" data-scenario="normal" onclick="selectScenario('normal')">정상 결선</button>
+      <button class="scenario-btn rounded-lg px-3 py-1.5 text-xs whitespace-nowrap" data-scenario="error1" onclick="selectScenario('error1')">오결선 사례 1</button>
+      <button class="scenario-btn rounded-lg px-3 py-1.5 text-xs whitespace-nowrap" data-scenario="error2" onclick="selectScenario('error2')">오결선 사례 2</button>
+    </div>
+
+    <!-- Camera Viewfinder -->
+    <div class="section-card mb-4" id="cameraSection">
+      <div class="relative w-full" style="aspect-ratio:4/3;background:linear-gradient(135deg,#0a0f1e,#111827);overflow:hidden;" id="viewfinder">
+        <!-- Grid overlay -->
+        <div class="grid-overlay"></div>
+        <!-- Scan lines -->
+        <div class="scan-line-v" id="scanV"></div>
+        <div class="scan-line-h" id="scanH"></div>
+        <!-- Corner brackets -->
+        <div class="corner-bracket tl"></div>
+        <div class="corner-bracket tr"></div>
+        <div class="corner-bracket bl"></div>
+        <div class="corner-bracket br"></div>
+
+        <!-- Simulated meter terminal block (always visible as "camera feed") -->
+        <div class="absolute inset-0 flex items-center justify-center z-2" id="meterVisual">
+          <div class="relative" style="width:85%;max-width:320px;">
+            <!-- Meter body -->
+            <div class="rounded-lg border border-slate-600/50 p-3" style="background:rgba(30,41,59,.7);">
+              <div class="text-center text-[10px] text-slate-500 mb-2 tracking-wider">전력량계 단자대</div>
+              <div class="flex justify-center gap-1.5" id="terminalBlockCam">
+                <!-- Filled by JS -->
+              </div>
+              <div class="flex justify-center gap-1.5 mt-1">
+                <span class="text-[8px] text-slate-600 w-8 text-center">1</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">2</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">3</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">4</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">5</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">6</span>
+                <span class="text-[8px] text-slate-600 w-8 text-center">7</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detection Bounding Boxes (shown after analysis) -->
+        <div id="detectionOverlay" class="absolute inset-0 z-10" style="display:none;"></div>
+
+        <!-- Status overlay -->
+        <div class="absolute top-3 left-3 z-20 flex items-center gap-2">
+          <span class="text-[10px] font-mono text-amber-400/80" id="camStatus">READY</span>
+        </div>
+        <div class="absolute top-3 right-3 z-20">
+          <span class="text-[10px] font-mono text-slate-500" id="camTimestamp"></span>
+        </div>
+        <div class="absolute bottom-3 left-3 z-20">
+          <span class="text-[10px] font-mono text-slate-600" id="camModel">YOLOv8n-wire v2.4</span>
+        </div>
+        <div class="absolute bottom-3 right-3 z-20">
+          <span class="text-[10px] font-mono text-slate-600" id="camFps">30 FPS</span>
+        </div>
+
+        <!-- Analyzing overlay -->
+        <div class="absolute inset-0 z-30 flex flex-col items-center justify-center" style="background:rgba(7,11,22,.7);display:none;" id="analyzingOverlay">
+          <div class="w-10 h-10 rounded-full border-2 border-amber-500 border-t-transparent animate-spin mb-3"></div>
+          <p class="text-amber-400 text-sm font-semibold">AI 분석 중...</p>
+          <div class="dot-loading mt-2"><span></span><span></span><span></span></div>
+          <div class="progress-bar w-48 mt-3"><div class="fill"></div></div>
+        </div>
+      </div>
+
+      <!-- Capture Button -->
+      <div class="p-3 flex justify-center">
+        <button class="capture-btn rounded-xl px-8 py-3 text-sm flex items-center gap-2" id="captureBtn" onclick="startCapture()">
+          <i data-lucide="camera" class="w-4 h-4"></i>
+          <span id="captureBtnText">촬영 시작</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Wire Detection Results -->
+    <div class="section-card mb-4 p-4" id="resultsSection" style="display:none;">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="scan-line" class="w-4 h-4 text-amber-400"></i>
+          배선 검출 결과
+        </h3>
+        <div id="resultBadge"></div>
+      </div>
+
+      <!-- Terminal Diagram -->
+      <div class="rounded-lg border border-slate-700/50 p-3 mb-3" style="background:rgba(15,23,42,.5);">
+        <div class="text-[10px] text-slate-500 text-center mb-2">검출 위치 &harr; 기준 위치</div>
+        <div class="space-y-1.5" id="wireResults">
+          <!-- Filled by JS -->
+        </div>
+      </div>
+
+      <!-- Confidence Summary -->
+      <div class="grid grid-cols-2 gap-2" id="confidenceSummary">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+
+    <!-- Voice Announcement Panel -->
+    <div class="section-card mb-4 p-4" id="voiceSection" style="display:none;">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="volume-2" class="w-4 h-4 text-amber-400" id="speakerIcon"></i>
+          음성 안내
+        </h3>
+        <button class="tts-btn rounded-lg px-3 py-1.5 text-xs flex items-center gap-1.5" onclick="playTTS()" id="ttsBtn">
+          <i data-lucide="play" class="w-3 h-3"></i>
+          재생
+        </button>
+      </div>
+      <div class="rounded-lg p-3 border border-slate-700/40" style="background:rgba(15,23,42,.4);">
+        <div class="flex items-start gap-3">
+          <div class="flex gap-0.5 mt-1" id="waveVisual">
+            <div class="wave-bar" style="height:4px;animation-delay:0s"></div>
+            <div class="wave-bar" style="height:4px;animation-delay:.1s"></div>
+            <div class="wave-bar" style="height:4px;animation-delay:.2s"></div>
+            <div class="wave-bar" style="height:4px;animation-delay:.3s"></div>
+            <div class="wave-bar" style="height:4px;animation-delay:.15s"></div>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed" id="voiceText">대기 중...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standard Reference Panel -->
+    <div class="section-card mb-4">
+      <button class="w-full p-4 flex items-center justify-between text-left" onclick="toggleReference()">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i>
+          기준 결선도 (표준 규격)
+        </h3>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 transition-transform" id="refChevron"></i>
+      </button>
+      <div class="expand-section px-4 pb-4" id="referencePanel">
+        <!-- Phase Description -->
+        <div class="rounded-lg border border-slate-700/40 p-3 mb-3" style="background:rgba(15,23,42,.4);">
+          <div class="text-[11px] text-slate-400 font-semibold mb-2">3상 4선식 계기 결선 기준</div>
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#eab308;"></span>
+              <span class="text-slate-400">1번:</span>
+              <span class="text-white">A상 전압 (황색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#ef4444;"></span>
+              <span class="text-slate-400">2번:</span>
+              <span class="text-white">A상 전류 (적색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#92400e;"></span>
+              <span class="text-slate-400">3번:</span>
+              <span class="text-white">B상 전압 (갈색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#f5f5f5;"></span>
+              <span class="text-slate-400">4번:</span>
+              <span class="text-white">B상 전류 (백색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#1e1e1e;border:1px solid #555;"></span>
+              <span class="text-slate-400">5번:</span>
+              <span class="text-white">C상 전압 (흑색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#3b82f6;"></span>
+              <span class="text-slate-400">6번:</span>
+              <span class="text-white">C상 전류 (청색)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-3 h-3 rounded-sm" style="background:#22c55e;"></span>
+              <span class="text-slate-400">7번:</span>
+              <span class="text-white">N상 / 접지 (녹색)</span>
+            </div>
+          </div>
+        </div>
+        <!-- Visual Diagram -->
+        <div class="rounded-lg border border-slate-700/40 p-3" style="background:rgba(15,23,42,.4);">
+          <div class="text-[11px] text-slate-400 font-semibold mb-2">상(Phase) 구분</div>
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="rounded-lg p-2 border border-amber-500/20" style="background:rgba(234,179,8,.06);">
+              <div class="text-[10px] text-amber-400 font-bold">A상</div>
+              <div class="flex justify-center gap-1 mt-1">
+                <span class="w-4 h-4 rounded-full" style="background:#eab308;"></span>
+                <span class="w-4 h-4 rounded-full" style="background:#ef4444;"></span>
+              </div>
+              <div class="text-[8px] text-slate-500 mt-1">전압/전류</div>
+            </div>
+            <div class="rounded-lg p-2 border border-amber-700/20" style="background:rgba(146,64,14,.06);">
+              <div class="text-[10px] text-amber-600 font-bold">B상</div>
+              <div class="flex justify-center gap-1 mt-1">
+                <span class="w-4 h-4 rounded-full" style="background:#92400e;"></span>
+                <span class="w-4 h-4 rounded-full" style="background:#f5f5f5;"></span>
+              </div>
+              <div class="text-[8px] text-slate-500 mt-1">전압/전류</div>
+            </div>
+            <div class="rounded-lg p-2 border border-slate-500/20" style="background:rgba(30,30,30,.15);">
+              <div class="text-[10px] text-slate-300 font-bold">C상</div>
+              <div class="flex justify-center gap-1 mt-1">
+                <span class="w-4 h-4 rounded-full" style="background:#1e1e1e;border:1px solid #555;"></span>
+                <span class="w-4 h-4 rounded-full" style="background:#3b82f6;"></span>
+              </div>
+              <div class="text-[8px] text-slate-500 mt-1">전압/전류</div>
+            </div>
+            <div class="rounded-lg p-2 border border-green-500/20" style="background:rgba(34,197,94,.06);">
+              <div class="text-[10px] text-green-400 font-bold">N상</div>
+              <div class="flex justify-center gap-1 mt-1">
+                <span class="w-4 h-4 rounded-full" style="background:#22c55e;"></span>
+              </div>
+              <div class="text-[8px] text-slate-500 mt-1">접지</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: History -->
+  <div class="page" id="pageHistory">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-bold text-white flex items-center gap-2">
+        <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+        검사 이력
+      </h2>
+      <span class="text-[10px] text-slate-500">최근 10건</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-2 mb-4" id="statsCards">
+      <div class="stat-card">
+        <div class="num text-amber-400" id="statTotal">32</div>
+        <div class="text-[10px] text-slate-500 mt-1">오늘 검사</div>
+      </div>
+      <div class="stat-card">
+        <div class="num text-red-400" id="statError">3</div>
+        <div class="text-[10px] text-slate-500 mt-1">오결선</div>
+      </div>
+      <div class="stat-card">
+        <div class="num text-emerald-400" id="statRate">9.4%</div>
+        <div class="text-[10px] text-slate-500 mt-1">오결선율</div>
+      </div>
+    </div>
+
+    <!-- History List -->
+    <div class="section-card">
+      <div class="divide-y divide-slate-800/50" id="historyList">
+        <!-- Filled by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Settings (placeholder) -->
+  <div class="page" id="pageSettings">
+    <h2 class="text-base font-bold text-white flex items-center gap-2 mb-4">
+      <i data-lucide="settings" class="w-4 h-4 text-amber-400"></i>
+      설정
+    </h2>
+    <div class="section-card p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-white">음성 안내</div>
+          <div class="text-[10px] text-slate-500">검사 결과 TTS 자동 재생</div>
+        </div>
+        <div class="w-10 h-6 rounded-full bg-amber-500 relative cursor-pointer" onclick="this.classList.toggle('bg-amber-500');this.classList.toggle('bg-slate-600');this.querySelector('div').classList.toggle('translate-x-4');">
+          <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform translate-x-4"></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-white">자동 촬영</div>
+          <div class="text-[10px] text-slate-500">계기 감지 시 자동 분석</div>
+        </div>
+        <div class="w-10 h-6 rounded-full bg-slate-600 relative cursor-pointer" onclick="this.classList.toggle('bg-amber-500');this.classList.toggle('bg-slate-600');this.querySelector('div').classList.toggle('translate-x-4');">
+          <div class="w-5 h-5 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform"></div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-white">모델 버전</div>
+          <div class="text-[10px] text-slate-500">YOLOv8n-wire</div>
+        </div>
+        <span class="text-xs text-amber-400">v2.4</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-white">신뢰도 임계값</div>
+          <div class="text-[10px] text-slate-500">최소 인식 confidence</div>
+        </div>
+        <span class="text-xs text-amber-400">85%</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-white">검사 기준</div>
+          <div class="text-[10px] text-slate-500">3상 4선식 표준</div>
+        </div>
+        <span class="text-xs text-slate-400">KS C IEC 62053</span>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Bottom Navigation -->
+<div class="bottom-nav">
+  <div class="max-w-lg mx-auto flex justify-around">
+    <button class="bottom-nav-btn active" onclick="switchPage('pageCam', this)">
+      <i data-lucide="scan-eye" class="w-5 h-5"></i>
+      <span>검사</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="switchPage('pageHistory', this)">
+      <i data-lucide="clock" class="w-5 h-5"></i>
+      <span>이력</span>
+    </button>
+    <button class="bottom-nav-btn" onclick="switchPage('pageSettings', this)">
+      <i data-lucide="settings" class="w-5 h-5"></i>
+      <span>설정</span>
+    </button>
+  </div>
+</div>
+
+<script>
+// ── Wire Data ──
+const WIRE_COLORS = {
+  '황': { bg: '#eab308', text: '#000', label: '황(Yellow)' },
+  '적': { bg: '#ef4444', text: '#fff', label: '적(Red)' },
+  '갈': { bg: '#92400e', text: '#fff', label: '갈(Brown)' },
+  '백': { bg: '#f5f5f5', text: '#000', label: '백(White)' },
+  '흑': { bg: '#1e1e1e', text: '#fff', label: '흑(Black)', border: '1px solid #555' },
+  '청': { bg: '#3b82f6', text: '#fff', label: '청(Blue)' },
+  '녹': { bg: '#22c55e', text: '#fff', label: '녹(Green)' }
+};
+
+const STANDARD_ORDER = ['황','적','갈','백','흑','청','녹'];
+const TERMINAL_NAMES = ['1번','2번','3번','4번','5번','6번','7번'];
+
+// Scenarios
+const SCENARIOS = {
+  normal: {
+    name: '정상 결선',
+    detected: ['황','적','갈','백','흑','청','녹'],
+    confidences: [97.2, 95.8, 96.1, 98.3, 94.7, 97.5, 96.9],
+    voice: '정상입니다. 모든 배선이 올바르게 연결되었습니다. 7개 단자 전체 정상 확인 완료.',
+    isOk: true
+  },
+  error1: {
+    name: '오결선 사례 1',
+    detected: ['황','적','백','갈','흑','청','녹'], // 갈-백 swapped (3,4)
+    confidences: [96.8, 94.2, 97.5, 95.1, 93.9, 96.3, 98.1],
+    voice: '경고! 오결선이 감지되었습니다. 3번 단자: 백색 배선 확인, 갈색이어야 합니다. 4번 단자: 갈색 배선 확인, 백색이어야 합니다. B상 전압과 전류선이 뒤바뀌었습니다. 즉시 교정하십시오.',
+    isOk: false,
+    errors: [2, 3] // indices
+  },
+  error2: {
+    name: '오결선 사례 2',
+    detected: ['황','청','갈','백','흑','적','녹'], // 적-청 swapped (2,6)
+    confidences: [97.1, 92.4, 96.7, 95.9, 94.2, 93.8, 97.3],
+    voice: '경고! 2개 위치 오결선 확인. 2번 단자: 청색 배선 감지, 적색이어야 합니다. 6번 단자: 적색 배선 감지, 청색이어야 합니다. A상 전류선과 C상 전류선이 교차 연결되었습니다. 재연결 후 재검사 바랍니다.',
+    isOk: false,
+    errors: [1, 5]
+  }
+};
+
+let currentScenario = 'normal';
+let isAnalyzing = false;
+let hasResults = false;
+
+// ── Initialize ──
+function init() {
+  updateCamTimestamp();
+  setInterval(updateCamTimestamp, 1000);
+  renderTerminalBlock();
+  renderHistory();
+  lucide.createIcons();
+}
+
+function updateCamTimestamp() {
+  const now = new Date();
+  const ts = now.toLocaleTimeString('ko-KR', { hour12: false });
+  const el = document.getElementById('camTimestamp');
+  if (el) el.textContent = ts;
+}
+
+// ── Page Switching ──
+function switchPage(pageId, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ── Scenario Selection ──
+function selectScenario(scenario) {
+  currentScenario = scenario;
+  hasResults = false;
+  document.querySelectorAll('[data-scenario]').forEach(b => {
+    b.classList.toggle('active', b.dataset.scenario === scenario);
+  });
+  // Reset UI
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('voiceSection').style.display = 'none';
+  document.getElementById('detectionOverlay').style.display = 'none';
+  document.getElementById('detectionOverlay').innerHTML = '';
+  document.getElementById('captureBtn').classList.remove('analyzing');
+  document.getElementById('captureBtnText').textContent = '촬영 시작';
+  document.getElementById('camStatus').textContent = 'READY';
+  document.getElementById('camStatus').style.color = 'rgba(251,191,36,.8)';
+  renderTerminalBlock();
+  lucide.createIcons();
+}
+
+// ── Render terminal block in camera view ──
+function renderTerminalBlock() {
+  const container = document.getElementById('terminalBlockCam');
+  const scenario = SCENARIOS[currentScenario];
+  const wires = hasResults ? scenario.detected : STANDARD_ORDER;
+  let html = '';
+  wires.forEach((w, i) => {
+    const c = WIRE_COLORS[w];
+    const isError = hasResults && scenario.errors && scenario.errors.includes(i);
+    const borderStyle = c.border || 'none';
+    const glow = isError ? 'box-shadow:0 0 8px rgba(239,68,68,.6);' : '';
+    html += `<div class="w-8 h-10 rounded flex items-center justify-center text-[9px] font-bold"
+              style="background:${c.bg};color:${c.text};border:${borderStyle};${glow}">
+              ${w}
+            </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ── Start Capture / Analysis ──
+function startCapture() {
+  if (isAnalyzing) return;
+  isAnalyzing = true;
+  hasResults = false;
+
+  const btn = document.getElementById('captureBtn');
+  const btnText = document.getElementById('captureBtnText');
+  const overlay = document.getElementById('analyzingOverlay');
+  const status = document.getElementById('camStatus');
+
+  btn.classList.add('analyzing');
+  btnText.textContent = '분석 중...';
+  overlay.style.display = 'flex';
+  status.textContent = 'ANALYZING';
+  status.style.color = '#f59e0b';
+
+  // Hide previous results
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('voiceSection').style.display = 'none';
+  document.getElementById('detectionOverlay').style.display = 'none';
+  document.getElementById('detectionOverlay').innerHTML = '';
+
+  // Simulate analysis time
+  setTimeout(() => {
+    overlay.style.display = 'none';
+    isAnalyzing = false;
+    hasResults = true;
+    btn.classList.remove('analyzing');
+    btnText.textContent = '재촬영';
+
+    const scenario = SCENARIOS[currentScenario];
+    if (scenario.isOk) {
+      status.textContent = 'PASS';
+      status.style.color = '#4ade80';
+    } else {
+      status.textContent = 'FAIL';
+      status.style.color = '#f87171';
+    }
+
+    renderTerminalBlock();
+    showDetectionBoxes();
+    showResults();
+    showVoicePanel();
+    lucide.createIcons();
+  }, 2400);
+}
+
+// ── Detection Bounding Boxes ──
+function showDetectionBoxes() {
+  const overlay = document.getElementById('detectionOverlay');
+  const scenario = SCENARIOS[currentScenario];
+  overlay.style.display = 'block';
+  let html = '';
+
+  // Position boxes over terminal area
+  const startLeft = 12; // percent
+  const wireWidth = 10; // percent
+  const gap = 0.8;
+  const topPos = 32; // percent
+  const boxHeight = 30; // percent
+
+  scenario.detected.forEach((w, i) => {
+    const c = WIRE_COLORS[w];
+    const isError = scenario.errors && scenario.errors.includes(i);
+    const borderColor = isError ? '#ef4444' : '#4ade80';
+    const bgColor = isError ? 'rgba(239,68,68,.1)' : 'rgba(34,197,94,.08)';
+    const labelBg = isError ? '#ef4444' : '#4ade80';
+    const labelColor = isError ? '#fff' : '#000';
+    const left = startLeft + i * (wireWidth + gap);
+    const conf = scenario.confidences[i].toFixed(1);
+
+    html += `<div class="detection-box" style="
+      left:${left}%;top:${topPos}%;width:${wireWidth}%;height:${boxHeight}%;
+      border-color:${borderColor};background:${bgColor};
+      animation-delay:${i * 0.08}s;">
+      <span class="label" style="background:${labelBg};color:${labelColor};">${w} ${conf}%</span>
+    </div>`;
+  });
+
+  overlay.innerHTML = html;
+}
+
+// ── Show Results ──
+function showResults() {
+  const section = document.getElementById('resultsSection');
+  const scenario = SCENARIOS[currentScenario];
+  section.style.display = 'block';
+  section.style.animation = 'fadeInUp .5s ease';
+
+  // Badge
+  const badge = document.getElementById('resultBadge');
+  if (scenario.isOk) {
+    badge.innerHTML = '<span class="status-badge ok"><i data-lucide="check-circle" class="w-3 h-3"></i> 정상</span>';
+  } else {
+    const errCount = scenario.errors.length;
+    badge.innerHTML = `<span class="status-badge error"><i data-lucide="alert-triangle" class="w-3 h-3"></i> 오결선 ${errCount}건</span>`;
+  }
+
+  // Wire results
+  const container = document.getElementById('wireResults');
+  let html = '';
+  scenario.detected.forEach((w, i) => {
+    const expected = STANDARD_ORDER[i];
+    const isError = scenario.errors && scenario.errors.includes(i);
+    const statusClass = isError ? 'error' : 'ok';
+    const dc = WIRE_COLORS[w];
+    const ec = WIRE_COLORS[expected];
+    const conf = scenario.confidences[i].toFixed(1);
+
+    html += `<div class="wire-slot ${statusClass} flex items-center gap-2" style="animation-delay:${i * 0.06}s;">
+      <span class="text-[10px] text-slate-500 w-7 flex-shrink-0">${TERMINAL_NAMES[i]}</span>
+      <div class="flex items-center gap-1 flex-1 min-w-0">
+        <span class="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+              style="background:${dc.bg};color:${dc.text};${dc.border ? 'border:' + dc.border : ''}">
+          ${w}
+        </span>
+        <i data-lucide="${isError ? 'x' : 'check'}" class="w-3 h-3 flex-shrink-0 ${isError ? 'text-red-400' : 'text-green-400'}"></i>
+        <span class="w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+              style="background:${ec.bg};color:${ec.text};${ec.border ? 'border:' + ec.border : ''}">
+          ${expected}
+        </span>
+        <span class="text-[10px] ${isError ? 'text-red-400' : 'text-slate-500'} ml-1 truncate">
+          ${isError ? '오결선' : '정상'}
+        </span>
+      </div>
+      <div class="text-right flex-shrink-0">
+        <span class="text-[10px] font-mono ${parseFloat(conf) >= 95 ? 'text-green-400' : 'text-amber-400'}">${conf}%</span>
+      </div>
+    </div>`;
+  });
+  container.innerHTML = html;
+
+  // Confidence summary
+  const summaryEl = document.getElementById('confidenceSummary');
+  const avgConf = (scenario.confidences.reduce((a, b) => a + b, 0) / scenario.confidences.length).toFixed(1);
+  const minConf = Math.min(...scenario.confidences).toFixed(1);
+  const errCount = scenario.errors ? scenario.errors.length : 0;
+  const okCount = 7 - errCount;
+
+  summaryEl.innerHTML = `
+    <div class="rounded-lg p-2 border border-slate-700/30 text-center" style="background:rgba(15,23,42,.4);">
+      <div class="text-[10px] text-slate-500">평균 신뢰도</div>
+      <div class="text-sm font-bold text-amber-400">${avgConf}%</div>
+    </div>
+    <div class="rounded-lg p-2 border border-slate-700/30 text-center" style="background:rgba(15,23,42,.4);">
+      <div class="text-[10px] text-slate-500">최저 신뢰도</div>
+      <div class="text-sm font-bold ${parseFloat(minConf) >= 95 ? 'text-green-400' : 'text-amber-400'}">${minConf}%</div>
+    </div>
+    <div class="rounded-lg p-2 border border-slate-700/30 text-center" style="background:rgba(15,23,42,.4);">
+      <div class="text-[10px] text-slate-500">정상 배선</div>
+      <div class="text-sm font-bold text-green-400">${okCount}/7</div>
+    </div>
+    <div class="rounded-lg p-2 border border-slate-700/30 text-center" style="background:rgba(15,23,42,.4);">
+      <div class="text-[10px] text-slate-500">분석 시간</div>
+      <div class="text-sm font-bold text-slate-300">0.${Math.floor(Math.random()*4)+3}s</div>
+    </div>`;
+}
+
+// ── Voice Panel ──
+function showVoicePanel() {
+  const section = document.getElementById('voiceSection');
+  const scenario = SCENARIOS[currentScenario];
+  section.style.display = 'block';
+  section.style.animation = 'fadeInUp .5s ease .2s both';
+  document.getElementById('voiceText').textContent = scenario.voice;
+}
+
+// ── TTS Playback ──
+function playTTS() {
+  const scenario = SCENARIOS[currentScenario];
+  const text = scenario.voice;
+
+  // Visual feedback
+  const icon = document.getElementById('speakerIcon');
+  const waves = document.getElementById('waveVisual');
+  icon.classList.add('speaking');
+  waves.querySelectorAll('.wave-bar').forEach(b => b.style.animationPlayState = 'running');
+
+  // Try Web Speech API
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ko-KR';
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+
+    // Try to find Korean voice
+    const voices = window.speechSynthesis.getVoices();
+    const koVoice = voices.find(v => v.lang.startsWith('ko'));
+    if (koVoice) utterance.voice = koVoice;
+
+    utterance.onend = () => {
+      icon.classList.remove('speaking');
+      waves.querySelectorAll('.wave-bar').forEach(b => b.style.animationPlayState = 'paused');
+    };
+
+    utterance.onerror = () => {
+      icon.classList.remove('speaking');
+      waves.querySelectorAll('.wave-bar').forEach(b => b.style.animationPlayState = 'paused');
+    };
+
+    window.speechSynthesis.speak(utterance);
+  } else {
+    // Fallback: just animate for a few seconds
+    setTimeout(() => {
+      icon.classList.remove('speaking');
+      waves.querySelectorAll('.wave-bar').forEach(b => b.style.animationPlayState = 'paused');
+    }, 3000);
+  }
+}
+
+// ── Reference Panel Toggle ──
+function toggleReference() {
+  const panel = document.getElementById('referencePanel');
+  const chevron = document.getElementById('refChevron');
+  panel.classList.toggle('open');
+  chevron.style.transform = panel.classList.contains('open') ? 'rotate(180deg)' : '';
+}
+
+// ── History ──
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const workers = ['김철수','이영희','박민수','정수진','최동현','한지영','오승환','윤서연','강민호','조은비'];
+  const meterPrefixes = ['KM','SM','EM'];
+  const now = new Date();
+  const entries = [];
+
+  for (let i = 0; i < 10; i++) {
+    const time = new Date(now - i * (8 + Math.random() * 15) * 60000);
+    const isError = i === 2 || i === 5 || i === 8;
+    const meterNum = meterPrefixes[Math.floor(Math.random() * 3)] + '-' +
+                     (2024000 + Math.floor(Math.random() * 9999)).toString().padStart(7, '0');
+    entries.push({
+      time: time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      meter: meterNum,
+      worker: workers[i],
+      isError,
+      errorDetail: isError ? ['B상 전압/전류 교차','C상 전류 오접속','A상 전류 미접속'][Math.floor(Math.random()*3)] : null
+    });
+  }
+
+  let html = '';
+  entries.forEach((e, i) => {
+    html += `<div class="history-row px-4 py-3 flex items-center gap-3" style="animation:fadeInUp .4s ease ${i * 0.05}s both;">
+      <div class="flex-shrink-0">
+        <div class="w-8 h-8 rounded-full flex items-center justify-center ${e.isError ? 'bg-red-500/15' : 'bg-green-500/15'}">
+          <i data-lucide="${e.isError ? 'alert-triangle' : 'check-circle'}" class="w-4 h-4 ${e.isError ? 'text-red-400' : 'text-green-400'}"></i>
+        </div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-white truncate">${e.meter}</span>
+          <span class="status-badge ${e.isError ? 'error' : 'ok'}" style="font-size:10px;padding:1px 6px;">
+            ${e.isError ? '오결선' : '정상'}
+          </span>
+        </div>
+        <div class="flex items-center gap-2 mt-0.5">
+          <span class="text-[10px] text-slate-500">${e.time}</span>
+          <span class="text-[10px] text-slate-600">&middot;</span>
+          <span class="text-[10px] text-slate-500">${e.worker}</span>
+          ${e.isError ? `<span class="text-[10px] text-red-400/70">${e.errorDetail}</span>` : ''}
+        </div>
+      </div>
+      <div class="flex-shrink-0">
+        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+      </div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+// ── Load voices for TTS ──
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+}
+
+// ── Pause wave bars initially ──
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.wave-bar').forEach(b => b.style.animationPlayState = 'paused');
+  init();
+});
+</script>
+</body>
+</html>

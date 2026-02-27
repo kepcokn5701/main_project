@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 비전 자재관리 - CCTV + YOLOv8 실시간 재고관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans KR', 'sans-serif'] },
+      colors: {
+        bg: { primary: '#070b16', secondary: '#0d1525', tertiary: '#131d33', card: '#111b2e' },
+        lime: { 400: '#a3e635', 500: '#84cc16', 600: '#65a30d' },
+        accent: { green: '#22c55e', red: '#ef4444', yellow: '#eab308', blue: '#3b82f6', cyan: '#06b6d4' }
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: #070b16; color: #e2e8f0; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #0d1525; }
+  ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #2d5a8f; }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .live-indicator { animation: livePulse 1.2s ease-in-out infinite; }
+
+  @keyframes alertSlideIn {
+    from { transform: translateX(-100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .alert-enter { animation: alertSlideIn 0.4s ease-out; }
+
+  @keyframes scanLine {
+    0% { top: 0; }
+    100% { top: 100%; }
+  }
+  .scan-line {
+    position: absolute; left: 0; width: 100%; height: 2px;
+    background: linear-gradient(90deg, transparent, #a3e635, transparent);
+    animation: scanLine 3s linear infinite; opacity: 0.4;
+  }
+
+  @keyframes boxPulse {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 0.4; }
+  }
+  .bbox { position: absolute; border: 2px solid; border-radius: 2px; animation: boxPulse 2s ease-in-out infinite; }
+
+  .camera-feed {
+    background: linear-gradient(135deg, #0a1020 0%, #0d1830 50%, #0a1020 100%);
+    position: relative; overflow: hidden; cursor: pointer; transition: all 0.3s;
+  }
+  .camera-feed:hover { border-color: #a3e635 !important; }
+  .camera-feed.expanded {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    z-index: 1000; border-radius: 0;
+  }
+
+  .stat-card {
+    background: linear-gradient(135deg, #111b2e 0%, #0d1525 100%);
+    border: 1px solid #1e3a5f; border-radius: 12px; padding: 20px;
+    transition: all 0.3s;
+  }
+  .stat-card:hover { border-color: #a3e635; transform: translateY(-2px); }
+
+  .tab-btn { transition: all 0.2s; }
+  .tab-btn.active { background: #a3e635; color: #070b16; font-weight: 600; }
+
+  .chart-bar {
+    transition: height 0.6s ease-out;
+    background: linear-gradient(to top, #65a30d, #a3e635);
+    border-radius: 4px 4px 0 0;
+  }
+
+  .noise-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+
+  .grid-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(163,230,53,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(163,230,53,0.03) 1px, transparent 1px);
+    background-size: 30px 30px;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body class="min-h-screen">
+<!-- AI DATA DISCLAIMER START (AI기본법 준수) -->
+<div id="ai-disclaimer-banner" style="position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#78350f,#92400e);border-bottom:2px solid #f59e0b;padding:8px 20px;display:flex;align-items:center;justify-content:center;gap:10px;font-family:Noto Sans KR,sans-serif;font-size:13px;color:#fef3c7;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.6);"><span style="font-size:18px;">&#x26A0;&#xFE0F;</span><span><strong style="color:#fde68a;">AI 생성 데이터 고지</strong> | 본 화면의 모든 데이터(성명, 연락처, 주소, 계량값, 요금 등)는 <strong style="text-decoration:underline;">AI가 생성한 가상 데이터</strong>이며, 실제 인물 기업 고객 정보와 일절 무관합니다. <span style="opacity:.75;">(AI기본법 준수)</span></span></div>
+<div id="ai-disclaimer-spacer" style="height:40px;"></div>
+<div id="ai-watermark" style="position:fixed;bottom:14px;right:14px;z-index:99998;background:rgba(120,53,15,.92);border:1px solid rgba(251,191,36,.45);border-radius:24px;padding:6px 16px;font-family:Noto Sans KR,sans-serif;font-size:11px;color:#fde68a;display:flex;align-items:center;gap:6px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.4);pointer-events:none;">&#x1F916; AI 생성 가상 데이터</div>
+<div id="ai-consent-overlay" style="position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.88);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-family:Noto Sans KR,sans-serif;"><div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border:1px solid rgba(251,191,36,.3);border-radius:20px;padding:36px 32px;max-width:520px;width:90%;text-align:center;box-shadow:0 24px 48px rgba(0,0,0,.6);"><div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#92400e,#b45309);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:32px;">&#x26A0;&#xFE0F;</div><h2 style="color:#fde68a;font-size:20px;font-weight:700;margin-bottom:12px;">AI 생성 데이터 안내</h2><p style="color:#cbd5e1;font-size:14px;line-height:1.8;margin-bottom:8px;">본 시스템은 <strong style="color:#fbbf24;">프로토타입 시연 목적</strong>으로 제작되었습니다.</p><div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);border-radius:12px;padding:16px;margin:16px 0;text-align:left;"><p style="color:#fef3c7;font-size:13px;line-height:1.8;">&#x2022; 화면에 표시되는 <strong style="color:#fbbf24;">모든 데이터는 AI가 생성한 가상 데이터</strong>입니다.<br>&#x2022; 실제 인물, 기업, 고객, 설비 정보와 <strong style="color:#fbbf24;">일절 무관</strong>합니다.<br>&#x2022; 이름, 연락처, 주소, 계기번호, 요금 등 모든 수치는 허구입니다.<br>&#x2022; 본 고지는 <strong style="color:#fbbf24;">AI기본법</strong>을 준수합니다.</p></div><button onclick="document.getElementById('ai-consent-overlay').style.display='none';" style="background:linear-gradient(135deg,#b45309,#d97706);color:#fff;border:none;padding:12px 48px;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:Noto Sans KR,sans-serif;box-shadow:0 4px 16px rgba(217,119,6,.4);transition:transform .15s;">확인했습니다</button><p style="color:#64748b;font-size:11px;margin-top:14px;">이 안내를 확인해야 시스템을 이용하실 수 있습니다.</p></div></div>
+<!-- AI DATA DISCLAIMER END -->
+
+<!-- Top Navigation -->
+<nav class="sticky top-0 z-50 border-b border-[#1e3a5f]" style="background:rgba(7,11,22,0.95);backdrop-filter:blur(12px);">
+  <div class="max-w-[1800px] mx-auto px-4 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 text-slate-400 hover:text-lime-400 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+        <span class="text-sm hidden sm:inline">돌아가기</span>
+      </a>
+      <div class="w-px h-8 bg-[#1e3a5f]"></div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-lg bg-lime-500/10 border border-lime-500/30 flex items-center justify-center">
+          <i data-lucide="scan-eye" class="w-5 h-5 text-lime-400"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-tight">AI 비전 자재관리</h1>
+          <p class="text-xs text-slate-500">CCTV + YOLOv8 실시간 재고관리 시스템</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/30">
+        <span class="w-2 h-2 rounded-full bg-green-400 live-indicator"></span>
+        <span class="text-xs text-green-400 font-medium">시스템 정상</span>
+      </div>
+      <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#131d33] border border-[#1e3a5f]">
+        <i data-lucide="cpu" class="w-3.5 h-3.5 text-lime-400"></i>
+        <span class="text-xs text-slate-400">YOLOv8 <span class="text-lime-400">Active</span></span>
+      </div>
+      <button id="soundToggle" onclick="toggleSound()" class="p-2 rounded-lg bg-[#131d33] border border-[#1e3a5f] hover:border-lime-500/50 transition-colors" title="알림 소리 토글">
+        <i data-lucide="volume-x" class="w-4 h-4 text-slate-500" id="soundIcon"></i>
+      </button>
+      <div class="text-right hidden sm:block">
+        <div class="text-xs text-slate-500" id="navDate"></div>
+        <div class="text-sm text-slate-300 font-mono" id="navTime"></div>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<div class="max-w-[1800px] mx-auto px-4 py-6 space-y-6">
+
+  <!-- Statistics Cards -->
+  <section id="statsSection" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-lime-500/10 flex items-center justify-center">
+          <i data-lucide="box" class="w-5 h-5 text-lime-400"></i>
+        </div>
+        <span class="text-xs text-slate-500">Total</span>
+      </div>
+      <div class="text-2xl font-bold text-white" id="statTotal">847</div>
+      <div class="text-xs text-slate-500 mt-1">총 관리 자재 (종)</div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+          <i data-lucide="package-plus" class="w-5 h-5 text-green-400"></i>
+        </div>
+        <span class="text-xs text-green-400">+12%</span>
+      </div>
+      <div class="text-2xl font-bold text-white" id="statInbound">23</div>
+      <div class="text-xs text-slate-500 mt-1">오늘 입고 (건)</div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+          <i data-lucide="package-minus" class="w-5 h-5 text-blue-400"></i>
+        </div>
+        <span class="text-xs text-blue-400">-5%</span>
+      </div>
+      <div class="text-2xl font-bold text-white" id="statOutbound">15</div>
+      <div class="text-xs text-slate-500 mt-1">오늘 출고 (건)</div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center">
+          <i data-lucide="brain-circuit" class="w-5 h-5 text-cyan-400"></i>
+        </div>
+        <span class="text-xs text-cyan-400">Excellent</span>
+      </div>
+      <div class="text-2xl font-bold text-white"><span id="statAccuracy">96.8</span>%</div>
+      <div class="text-xs text-slate-500 mt-1">AI 인식 정확도</div>
+    </div>
+    <div class="stat-card">
+      <div class="flex items-center justify-between mb-3">
+        <div class="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-red-400"></i>
+        </div>
+        <span class="text-xs text-red-400">주의</span>
+      </div>
+      <div class="text-2xl font-bold text-white" id="statAlerts">3</div>
+      <div class="text-xs text-slate-500 mt-1">재고 부족 알림 (건)</div>
+    </div>
+  </section>
+
+  <!-- CCTV Grid + Alerts -->
+  <section class="grid grid-cols-1 xl:grid-cols-4 gap-6">
+    <!-- CCTV 2x2 Grid -->
+    <div class="xl:col-span-3">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="cctv" class="w-5 h-5 text-lime-400"></i>
+          실시간 CCTV 모니터링
+        </h2>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <span>카메라 클릭 시 확대</span>
+          <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="cctvGrid">
+        <!-- Camera feeds will be injected by JS -->
+      </div>
+    </div>
+
+    <!-- Alerts Panel -->
+    <div class="xl:col-span-1">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i data-lucide="bell-ring" class="w-5 h-5 text-yellow-400"></i>
+          실시간 알림
+        </h2>
+        <span class="text-xs text-slate-500" id="alertCount">0건</span>
+      </div>
+      <div class="bg-[#0d1525] border border-[#1e3a5f] rounded-xl p-3 h-[520px] overflow-y-auto space-y-2" id="alertsPanel">
+        <!-- Alerts will be injected by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabs Section -->
+  <section>
+    <div class="flex items-center gap-2 mb-4 overflow-x-auto pb-2">
+      <button class="tab-btn active px-4 py-2 rounded-lg text-sm border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-tab="inventory" onclick="switchTab('inventory')">
+        <span class="flex items-center gap-1.5"><i data-lucide="clipboard-list" class="w-4 h-4"></i> 재고 현황</span>
+      </button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-tab="search" onclick="switchTab('search')">
+        <span class="flex items-center gap-1.5"><i data-lucide="search" class="w-4 h-4"></i> 호환 자재 검색</span>
+      </button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-tab="log" onclick="switchTab('log')">
+        <span class="flex items-center gap-1.5"><i data-lucide="history" class="w-4 h-4"></i> 입출고 이력</span>
+      </button>
+      <button class="tab-btn px-4 py-2 rounded-lg text-sm border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-tab="chart" onclick="switchTab('chart')">
+        <span class="flex items-center gap-1.5"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> 주간 통계</span>
+      </button>
+    </div>
+
+    <!-- Tab: Inventory Dashboard -->
+    <div id="tab-inventory" class="tab-content">
+      <div class="bg-[#0d1525] border border-[#1e3a5f] rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-[#1e3a5f] flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <h3 class="text-sm font-semibold text-white">실시간 재고 현황 테이블</h3>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative flex-1 sm:w-64">
+              <i data-lucide="search" class="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="inventorySearch" placeholder="자재코드 또는 자재명 검색..."
+                class="w-full pl-9 pr-3 py-2 rounded-lg bg-[#131d33] border border-[#1e3a5f] text-sm text-slate-300 placeholder-slate-600 focus:outline-none focus:border-lime-500/50"
+                oninput="filterInventory()">
+            </div>
+            <select id="statusFilter" onchange="filterInventory()" class="px-3 py-2 rounded-lg bg-[#131d33] border border-[#1e3a5f] text-sm text-slate-300 focus:outline-none focus:border-lime-500/50">
+              <option value="all">전체 상태</option>
+              <option value="정상">정상</option>
+              <option value="부족">부족</option>
+              <option value="과다">과다</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-xs text-slate-500 uppercase border-b border-[#1e3a5f]">
+                <th class="px-4 py-3 text-left">자재코드</th>
+                <th class="px-4 py-3 text-left">자재명</th>
+                <th class="px-4 py-3 text-center">카메라</th>
+                <th class="px-4 py-3 text-center">현재고</th>
+                <th class="px-4 py-3 text-center">기준재고</th>
+                <th class="px-4 py-3 text-center">상태</th>
+                <th class="px-4 py-3 text-right">최종갱신</th>
+              </tr>
+            </thead>
+            <tbody id="inventoryTableBody">
+              <!-- Injected by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Material Search -->
+    <div id="tab-search" class="tab-content hidden">
+      <div class="bg-[#0d1525] border border-[#1e3a5f] rounded-xl p-6">
+        <h3 class="text-sm font-semibold text-white mb-4">호환 자재 검색</h3>
+        <div class="relative max-w-xl mb-6">
+          <i data-lucide="search" class="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2"></i>
+          <input type="text" id="materialSearchInput" placeholder="자재명을 입력하세요 (예: VCB-72, 애자, 변압기...)"
+            class="w-full pl-12 pr-4 py-3 rounded-xl bg-[#131d33] border border-[#1e3a5f] text-slate-300 placeholder-slate-600 focus:outline-none focus:border-lime-500/50 text-sm"
+            oninput="searchMaterials()">
+        </div>
+        <div id="searchResults" class="space-y-4">
+          <div class="text-center text-slate-600 py-12">
+            <i data-lucide="package-search" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
+            <p>검색어를 입력하면 호환 자재 정보를 표시합니다</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Entry/Exit Log -->
+    <div id="tab-log" class="tab-content hidden">
+      <div class="bg-[#0d1525] border border-[#1e3a5f] rounded-xl overflow-hidden">
+        <div class="p-4 border-b border-[#1e3a5f] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold text-white">입출고 이력 타임라인</h3>
+          <div class="flex items-center gap-2">
+            <button class="log-filter-btn px-3 py-1.5 rounded-lg text-xs border border-[#1e3a5f] bg-lime-500 text-[#070b16] font-semibold" data-filter="all" onclick="filterLog('all')">전체</button>
+            <button class="log-filter-btn px-3 py-1.5 rounded-lg text-xs border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-filter="입고" onclick="filterLog('입고')">입고</button>
+            <button class="log-filter-btn px-3 py-1.5 rounded-lg text-xs border border-[#1e3a5f] bg-[#131d33] text-slate-400" data-filter="출고" onclick="filterLog('출고')">출고</button>
+          </div>
+        </div>
+        <div class="p-4 max-h-[600px] overflow-y-auto" id="logTimeline">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Weekly Chart -->
+    <div id="tab-chart" class="tab-content hidden">
+      <div class="bg-[#0d1525] border border-[#1e3a5f] rounded-xl p-6">
+        <h3 class="text-sm font-semibold text-white mb-6">주간 입출고 추이</h3>
+        <div class="flex items-end justify-between gap-2 h-64 px-4" id="weeklyChart">
+          <!-- Chart bars injected by JS -->
+        </div>
+        <div class="flex justify-between px-4 mt-3 text-xs text-slate-500" id="chartLabels">
+          <!-- Day labels injected by JS -->
+        </div>
+        <div class="flex items-center justify-center gap-6 mt-6 text-xs">
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-lime-500"></span> 입고</span>
+          <span class="flex items-center gap-2"><span class="w-3 h-3 rounded-sm bg-blue-500"></span> 출고</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Expanded Camera Overlay -->
+<div id="cameraOverlay" class="fixed inset-0 bg-black/90 z-[999] hidden flex items-center justify-center p-8" onclick="closeExpandedCamera()">
+  <div class="relative w-full max-w-5xl" onclick="event.stopPropagation()">
+    <div id="expandedCameraContent" class="w-full aspect-video rounded-xl overflow-hidden border-2 border-lime-500/30"></div>
+    <button onclick="closeExpandedCamera()" class="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-[#131d33] border border-[#1e3a5f] flex items-center justify-center hover:border-red-500 transition-colors">
+      <i data-lucide="x" class="w-4 h-4 text-slate-400"></i>
+    </button>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+
+const cameras = [
+  {
+    id: 'CAM-A1', name: '자재창고 1구역',
+    detections: [
+      { label: '차단기 VCB-72', count: 3, x: 10, y: 20, w: 28, h: 35, color: '#a3e635' },
+      { label: '계기용변성기 MOF', count: 2, x: 55, y: 15, w: 22, h: 30, color: '#22c55e' },
+      { label: '피뢰기 LA-72', count: 6, x: 42, y: 55, w: 20, h: 28, color: '#06b6d4' }
+    ]
+  },
+  {
+    id: 'CAM-B2', name: '자재창고 2구역',
+    detections: [
+      { label: '애자(현수)', count: 12, x: 8, y: 25, w: 35, h: 25, color: '#eab308' },
+      { label: '클램프 SL-3', count: 8, x: 50, y: 18, w: 25, h: 32, color: '#a3e635' },
+      { label: '전선관 PVC', count: 20, x: 60, y: 58, w: 30, h: 25, color: '#3b82f6' }
+    ]
+  },
+  {
+    id: 'CAM-C3', name: '야외 자재장',
+    detections: [
+      { label: '전주(콘크리트)', count: 4, x: 5, y: 10, w: 15, h: 70, color: '#ef4444' },
+      { label: '변압기 부싱', count: 5, x: 30, y: 30, w: 30, h: 35, color: '#a3e635' },
+      { label: '케이블 트레이', count: 4, x: 65, y: 40, w: 28, h: 30, color: '#f97316' }
+    ]
+  },
+  {
+    id: 'CAM-D4', name: '전선관 보관소',
+    detections: [
+      { label: '전선관 강제', count: 15, x: 5, y: 15, w: 40, h: 25, color: '#a3e635' },
+      { label: '케이블 XLPE', count: 7, x: 50, y: 20, w: 35, h: 30, color: '#22c55e' },
+      { label: '접속함 JB-3', count: 3, x: 20, y: 55, w: 25, h: 30, color: '#eab308' }
+    ]
+  }
+];
+
+const inventoryData = [
+  { code: 'VCB-72-001', name: '차단기 VCB-72kV', camera: 'CAM-A1', current: 3, standard: 5, status: '부족' },
+  { code: 'MOF-25-002', name: '계기용변성기 MOF-25kV', camera: 'CAM-A1', current: 2, standard: 3, status: '부족' },
+  { code: 'LA-72-003', name: '피뢰기 LA-72kV', camera: 'CAM-A1', current: 6, standard: 5, status: '정상' },
+  { code: 'INS-HG-004', name: '애자(현수) 25.8kV', camera: 'CAM-B2', current: 12, standard: 10, status: '정상' },
+  { code: 'CLP-SL3-005', name: '클램프 SL-3 (인장)', camera: 'CAM-B2', current: 8, standard: 8, status: '정상' },
+  { code: 'PVC-28-006', name: '전선관 PVC 28mm', camera: 'CAM-B2', current: 20, standard: 15, status: '과다' },
+  { code: 'POL-12-007', name: '전주 콘크리트 12m', camera: 'CAM-C3', current: 4, standard: 6, status: '부족' },
+  { code: 'BSG-154-008', name: '변압기 부싱 154kV', camera: 'CAM-C3', current: 5, standard: 4, status: '정상' },
+  { code: 'CTR-ST-009', name: '케이블 트레이 STS', camera: 'CAM-C3', current: 4, standard: 8, status: '부족' },
+  { code: 'CNT-FE-010', name: '전선관 강제 36mm', camera: 'CAM-D4', current: 15, standard: 12, status: '과다' },
+  { code: 'XLP-325-011', name: '케이블 XLPE 325mm²', camera: 'CAM-D4', current: 7, standard: 6, status: '정상' },
+  { code: 'JB3-012', name: '접속함 JB-3 (방수형)', camera: 'CAM-D4', current: 3, standard: 5, status: '부족' },
+  { code: 'DS-25-013', name: '단로기 DS-25.8kV', camera: 'CAM-A1', current: 4, standard: 3, status: '정상' },
+  { code: 'TR-22-014', name: '변압기 22.9kV/380V', camera: 'CAM-C3', current: 2, standard: 2, status: '정상' },
+  { code: 'GIS-72-015', name: 'GIS 차단기 72kV', camera: 'CAM-A1', current: 1, standard: 2, status: '부족' },
+  { code: 'PT-25-016', name: '계기용변압기 PT-25kV', camera: 'CAM-B2', current: 3, standard: 3, status: '정상' },
+  { code: 'CT-25-017', name: '변류기 CT-25.8kV', camera: 'CAM-B2', current: 5, standard: 4, status: '정상' },
+  { code: 'ARR-025-018', name: '산화아연 피뢰기 25.8kV', camera: 'CAM-A1', current: 8, standard: 5, status: '과다' }
+];
+
+const compatibleMaterials = {
+  'VCB-72': {
+    name: '차단기 VCB-72kV',
+    specs: '정격전압: 72kV, 정격전류: 2000A, 차단용량: 31.5kA',
+    compatibles: [
+      { name: 'VCB-72A (동일사양)', match: '100%', available: 2, location: 'CAM-A1 자재창고 1구역' },
+      { name: 'VCB-80 (상위호환)', match: '95%', available: 1, location: '외부 협력업체 재고' },
+      { name: 'GCB-72 (가스차단기)', match: '85%', available: 3, location: 'CAM-A1 자재창고 1구역' }
+    ]
+  },
+  '애자': {
+    name: '애자(현수) 25.8kV',
+    specs: '종류: 현수애자, 등급: 25.8kV, 재질: 자기',
+    compatibles: [
+      { name: '현수애자 LP-25 (표준)', match: '100%', available: 12, location: 'CAM-B2 자재창고 2구역' },
+      { name: '폴리머 현수애자 25kV', match: '90%', available: 8, location: 'CAM-B2 자재창고 2구역' },
+      { name: '내오손 현수애자 25kV', match: '88%', available: 5, location: '중앙 물류창고' }
+    ]
+  },
+  '변압기': {
+    name: '변압기 22.9kV/380V',
+    specs: '정격용량: 300kVA, 1차전압: 22.9kV, 2차전압: 380/220V',
+    compatibles: [
+      { name: '변압기 300kVA (동일사양)', match: '100%', available: 1, location: 'CAM-C3 야외 자재장' },
+      { name: '변압기 500kVA (상위용량)', match: '80%', available: 2, location: '외부 협력업체' },
+      { name: '몰드변압기 300kVA', match: '75%', available: 0, location: '발주 필요 (납기 4주)' }
+    ]
+  },
+  '케이블': {
+    name: '케이블 XLPE 325mm²',
+    specs: '절연: XLPE, 도체: 325mm², 정격전압: 22.9kV',
+    compatibles: [
+      { name: 'XLPE 325mm² FR-CNCO-W', match: '100%', available: 7, location: 'CAM-D4 전선관 보관소' },
+      { name: 'XLPE 400mm² (상위규격)', match: '90%', available: 3, location: 'CAM-D4 전선관 보관소' },
+      { name: 'TR-CNCO-W 325mm²', match: '85%', available: 0, location: '발주 필요 (납기 2주)' }
+    ]
+  },
+  '피뢰기': {
+    name: '피뢰기 LA-72kV',
+    specs: '정격전압: 72kV, 방전전류: 10kA, 종류: 산화아연형',
+    compatibles: [
+      { name: 'LA-72kV ZnO (동일사양)', match: '100%', available: 6, location: 'CAM-A1 자재창고 1구역' },
+      { name: 'LA-84kV (상위호환)', match: '92%', available: 2, location: '중앙 물류창고' },
+      { name: 'MOSA-72kV (무갭형)', match: '88%', available: 4, location: 'CAM-A1 자재창고 1구역' }
+    ]
+  },
+  '전선관': {
+    name: '전선관 강제 36mm',
+    specs: '재질: 강제(아연도금), 내경: 36mm, 용도: 전력케이블 보호',
+    compatibles: [
+      { name: '강제전선관 36mm (동일)', match: '100%', available: 15, location: 'CAM-D4 전선관 보관소' },
+      { name: 'PVC전선관 36mm', match: '70%', available: 20, location: 'CAM-B2 자재창고 2구역' },
+      { name: 'PE이중벽관 50mm', match: '60%', available: 10, location: 'CAM-C3 야외 자재장' }
+    ]
+  }
+};
+
+const staff = ['김철수', '이영희', '박지성', '최민수', '정현우', '한소영', '오대환', '강수진', '윤병호', '임미래'];
+
+function generateLogEntries() {
+  const materials = [
+    '차단기 VCB-72', '애자(현수) 25.8kV', '변압기 부싱 154kV', '케이블 XLPE 325mm²',
+    '전선관 강제 36mm', '피뢰기 LA-72kV', '클램프 SL-3', '전선관 PVC 28mm',
+    '전주 콘크리트 12m', '접속함 JB-3', '계기용변성기 MOF', '단로기 DS-25.8kV',
+    'GIS 차단기 72kV', '변류기 CT-25.8kV', '케이블 트레이 STS', '산화아연 피뢰기',
+    '변압기 22.9kV', '계기용변압기 PT', '폴리머 애자', '몰드변압기 300kVA'
+  ];
+  const cams = ['CAM-A1', 'CAM-B2', 'CAM-C3', 'CAM-D4'];
+  const entries = [];
+  const now = new Date();
+  for (let i = 0; i < 25; i++) {
+    const t = new Date(now.getTime() - i * (8 + Math.random() * 20) * 60000);
+    entries.push({
+      time: t,
+      material: materials[Math.floor(Math.random() * materials.length)],
+      quantity: Math.floor(Math.random() * 10) + 1,
+      type: Math.random() > 0.4 ? '입고' : '출고',
+      camera: cams[Math.floor(Math.random() * cams.length)],
+      staff: staff[Math.floor(Math.random() * staff.length)]
+    });
+  }
+  return entries;
+}
+
+const logEntries = generateLogEntries();
+
+const alertTemplates = [
+  { icon: '🔔', msg: '케이블 트레이 현재고 4개 → 기준재고(8개) 미달', type: 'warning' },
+  { icon: '📦', msg: '차단기 VCB-72 입고 감지 (CAM-A1)', type: 'info' },
+  { icon: '⚠️', msg: '야외 자재장 미인식 물체 탐지', type: 'danger' },
+  { icon: '✅', msg: '전선관 PVC 28mm 재고 정상 확인 (CAM-B2)', type: 'success' },
+  { icon: '🔔', msg: '접속함 JB-3 현재고 3개 → 기준재고(5개) 미달', type: 'warning' },
+  { icon: '📦', msg: '피뢰기 LA-72 출고 감지 (CAM-A1) - 2개', type: 'info' },
+  { icon: '⚠️', msg: 'CAM-C3 야간 움직임 감지 - 확인 필요', type: 'danger' },
+  { icon: '✅', msg: 'AI 모델 정확도 점검 완료: 96.8%', type: 'success' },
+  { icon: '🔔', msg: 'GIS 차단기 72kV 현재고 1개 → 기준재고(2개) 미달', type: 'warning' },
+  { icon: '📦', msg: '애자(현수) 입고 감지 (CAM-B2) - 5개', type: 'info' },
+  { icon: '⚠️', msg: 'CAM-D4 카메라 떨림 감지 - 보정 진행중', type: 'danger' },
+  { icon: '✅', msg: '전주 콘크리트 12m 재고 보충 완료', type: 'success' },
+  { icon: '📦', msg: '변압기 부싱 154kV 출고 감지 (CAM-C3) - 1개', type: 'info' },
+  { icon: '🔔', msg: '계기용변성기 MOF 현재고 2개 → 기준재고(3개) 미달', type: 'warning' },
+  { icon: '⚠️', msg: 'CAM-A1 렌즈 오염 감지 - 청소 필요', type: 'danger' }
+];
+
+// ===== SOUND =====
+let soundEnabled = false;
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  const icon = document.getElementById('soundIcon');
+  icon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+  icon.classList.toggle('text-lime-400', soundEnabled);
+  icon.classList.toggle('text-slate-500', !soundEnabled);
+  lucide.createIcons();
+}
+
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const navDate = document.getElementById('navDate');
+  const navTime = document.getElementById('navTime');
+  if (navDate) navDate.textContent = dateStr;
+  if (navTime) navTime.textContent = timeStr;
+}
+
+// ===== CCTV GRID =====
+function renderCCTV() {
+  const grid = document.getElementById('cctvGrid');
+  grid.innerHTML = cameras.map((cam, idx) => `
+    <div class="camera-feed rounded-xl border border-[#1e3a5f] aspect-video relative" onclick="expandCamera(${idx})" id="cam-${idx}">
+      <div class="noise-overlay"></div>
+      <div class="grid-overlay"></div>
+      <div class="scan-line"></div>
+      ${cam.detections.map(d => `
+        <div class="bbox" style="left:${d.x}%;top:${d.y}%;width:${d.w}%;height:${d.h}%;border-color:${d.color};animation-delay:${Math.random()*2}s;">
+          <div class="absolute -top-5 left-0 text-[10px] font-mono px-1 rounded whitespace-nowrap" style="background:${d.color}22;color:${d.color};">
+            ${d.label} ×${d.count}
+          </div>
+          <div class="absolute top-0 left-0 w-2 h-2 border-l-2 border-t-2" style="border-color:${d.color};"></div>
+          <div class="absolute top-0 right-0 w-2 h-2 border-r-2 border-t-2" style="border-color:${d.color};"></div>
+          <div class="absolute bottom-0 left-0 w-2 h-2 border-l-2 border-b-2" style="border-color:${d.color};"></div>
+          <div class="absolute bottom-0 right-0 w-2 h-2 border-r-2 border-b-2" style="border-color:${d.color};"></div>
+        </div>
+      `).join('')}
+      <div class="absolute top-3 left-3 flex items-center gap-2">
+        <span class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-black/60 text-xs font-mono text-white">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-400 live-indicator"></span>
+          ${cam.id}
+        </span>
+        <span class="px-2 py-0.5 rounded bg-red-600/90 text-[10px] font-bold text-white live-indicator tracking-wider">LIVE</span>
+      </div>
+      <div class="absolute bottom-3 left-3 text-xs text-slate-400 bg-black/50 px-2 py-0.5 rounded">${cam.name}</div>
+      <div class="absolute bottom-3 right-3 text-[10px] font-mono text-slate-500 bg-black/50 px-2 py-0.5 rounded" id="camTime-${idx}"></div>
+      <div class="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded bg-lime-500/10 border border-lime-500/30">
+        <span class="text-[10px] text-lime-400 font-mono">YOLOv8</span>
+        <span class="text-[10px] text-lime-300 font-mono" id="camFps-${idx}">30fps</span>
+      </div>
+      <!-- Simulated infrared dots -->
+      <div class="absolute w-1 h-1 rounded-full bg-red-500/50" style="top:${15+Math.random()*70}%;left:${10+Math.random()*80}%;"></div>
+      <div class="absolute w-1 h-1 rounded-full bg-red-500/30" style="top:${15+Math.random()*70}%;left:${10+Math.random()*80}%;"></div>
+    </div>
+  `).join('');
+}
+
+function expandCamera(idx) {
+  const cam = cameras[idx];
+  const overlay = document.getElementById('cameraOverlay');
+  const content = document.getElementById('expandedCameraContent');
+  content.innerHTML = `
+    <div class="camera-feed w-full h-full relative" style="min-height:400px;">
+      <div class="noise-overlay"></div>
+      <div class="grid-overlay"></div>
+      <div class="scan-line"></div>
+      ${cam.detections.map(d => `
+        <div class="bbox" style="left:${d.x}%;top:${d.y}%;width:${d.w}%;height:${d.h}%;border-color:${d.color};">
+          <div class="absolute -top-6 left-0 text-xs font-mono px-1.5 py-0.5 rounded whitespace-nowrap" style="background:${d.color}33;color:${d.color};">
+            ${d.label} ×${d.count} <span class="opacity-60">(conf: ${(0.85 + Math.random()*0.13).toFixed(2)})</span>
+          </div>
+          <div class="absolute top-0 left-0 w-3 h-3 border-l-2 border-t-2" style="border-color:${d.color};"></div>
+          <div class="absolute top-0 right-0 w-3 h-3 border-r-2 border-t-2" style="border-color:${d.color};"></div>
+          <div class="absolute bottom-0 left-0 w-3 h-3 border-l-2 border-b-2" style="border-color:${d.color};"></div>
+          <div class="absolute bottom-0 right-0 w-3 h-3 border-r-2 border-b-2" style="border-color:${d.color};"></div>
+        </div>
+      `).join('')}
+      <div class="absolute top-4 left-4 flex items-center gap-3">
+        <span class="flex items-center gap-2 px-3 py-1 rounded-lg bg-black/70 text-sm font-mono text-white">
+          <span class="w-2 h-2 rounded-full bg-green-400 live-indicator"></span>
+          ${cam.id} — ${cam.name}
+        </span>
+        <span class="px-2 py-1 rounded bg-red-600 text-xs font-bold text-white live-indicator tracking-widest">● REC</span>
+      </div>
+      <div class="absolute bottom-4 left-4 flex items-center gap-3">
+        <span class="text-xs text-slate-400 bg-black/60 px-2 py-1 rounded font-mono" id="expandedCamTime"></span>
+        <span class="text-xs text-lime-400 bg-lime-500/10 px-2 py-1 rounded font-mono">YOLOv8 | 30fps | ${cam.detections.length} objects</span>
+      </div>
+      <div class="absolute bottom-4 right-4 text-xs text-slate-500 bg-black/60 px-2 py-1 rounded font-mono">1920×1080 H.265</div>
+    </div>
+  `;
+  overlay.classList.remove('hidden');
+  overlay.classList.add('flex');
+  updateExpandedTime();
+}
+
+function closeExpandedCamera() {
+  const overlay = document.getElementById('cameraOverlay');
+  overlay.classList.add('hidden');
+  overlay.classList.remove('flex');
+}
+
+function updateExpandedTime() {
+  const el = document.getElementById('expandedCamTime');
+  if (el) {
+    const now = new Date();
+    el.textContent = now.toLocaleString('ko-KR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+  }
+}
+
+function updateCamTimes() {
+  const now = new Date();
+  const ts = now.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+  cameras.forEach((_, idx) => {
+    const el = document.getElementById(`camTime-${idx}`);
+    if (el) el.textContent = ts;
+    const fpsEl = document.getElementById(`camFps-${idx}`);
+    if (fpsEl) fpsEl.textContent = `${28 + Math.floor(Math.random()*5)}fps`;
+  });
+  updateExpandedTime();
+}
+
+// ===== INVENTORY TABLE =====
+function renderInventory(data) {
+  const tbody = document.getElementById('inventoryTableBody');
+  const now = new Date();
+  tbody.innerHTML = data.map((item, i) => {
+    const updated = new Date(now.getTime() - Math.random() * 300000);
+    const timeStr = updated.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+    const statusColor = item.status === '정상' ? 'green' : item.status === '부족' ? 'red' : 'yellow';
+    const statusBg = item.status === '정상' ? 'bg-green-500/10 text-green-400 border-green-500/30' :
+                     item.status === '부족' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+                     'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
+    const currentColor = item.current < item.standard ? 'text-red-400' : item.current > item.standard ? 'text-yellow-400' : 'text-green-400';
+    return `
+      <tr class="border-b border-[#1e3a5f]/50 hover:bg-[#131d33]/50 transition-colors" data-status="${item.status}">
+        <td class="px-4 py-3 font-mono text-xs text-lime-400">${item.code}</td>
+        <td class="px-4 py-3 text-slate-300">${item.name}</td>
+        <td class="px-4 py-3 text-center">
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-[#131d33] border border-[#1e3a5f] text-slate-400">${item.camera}</span>
+        </td>
+        <td class="px-4 py-3 text-center font-bold ${currentColor}">${item.current}</td>
+        <td class="px-4 py-3 text-center text-slate-500">${item.standard}</td>
+        <td class="px-4 py-3 text-center">
+          <span class="text-xs px-2 py-0.5 rounded-full border ${statusBg}">${item.status}</span>
+        </td>
+        <td class="px-4 py-3 text-right text-xs text-slate-500 font-mono inv-time">${timeStr}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterInventory() {
+  const search = document.getElementById('inventorySearch').value.toLowerCase();
+  const status = document.getElementById('statusFilter').value;
+  const filtered = inventoryData.filter(item => {
+    const matchSearch = !search || item.code.toLowerCase().includes(search) || item.name.toLowerCase().includes(search);
+    const matchStatus = status === 'all' || item.status === status;
+    return matchSearch && matchStatus;
+  });
+  renderInventory(filtered);
+}
+
+function updateInventoryTimes() {
+  const cells = document.querySelectorAll('.inv-time');
+  const now = new Date();
+  cells.forEach(cell => {
+    const t = new Date(now.getTime() - Math.random() * 10000);
+    cell.textContent = t.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+  });
+}
+
+// ===== ALERTS =====
+let alertIdx = 0;
+let totalAlerts = 0;
+
+function addAlert() {
+  const panel = document.getElementById('alertsPanel');
+  const template = alertTemplates[alertIdx % alertTemplates.length];
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+  const typeBorder = template.type === 'warning' ? 'border-yellow-500/30' :
+                     template.type === 'danger' ? 'border-red-500/30' :
+                     template.type === 'success' ? 'border-green-500/30' : 'border-blue-500/30';
+  const typeBg = template.type === 'warning' ? 'bg-yellow-500/5' :
+                 template.type === 'danger' ? 'bg-red-500/5' :
+                 template.type === 'success' ? 'bg-green-500/5' : 'bg-blue-500/5';
+
+  const alertEl = document.createElement('div');
+  alertEl.className = `alert-enter p-3 rounded-lg border ${typeBorder} ${typeBg}`;
+  alertEl.innerHTML = `
+    <div class="flex items-start gap-2">
+      <span class="text-sm flex-shrink-0 mt-0.5">${template.icon}</span>
+      <div class="flex-1 min-w-0">
+        <p class="text-xs text-slate-300 leading-relaxed">${template.msg}</p>
+        <span class="text-[10px] text-slate-600 font-mono mt-1 block">${timeStr}</span>
+      </div>
+    </div>
+  `;
+  panel.insertBefore(alertEl, panel.firstChild);
+  totalAlerts++;
+  document.getElementById('alertCount').textContent = `${totalAlerts}건`;
+
+  // Keep max 30 alerts
+  while (panel.children.length > 30) {
+    panel.removeChild(panel.lastChild);
+  }
+
+  alertIdx++;
+}
+
+// ===== MATERIAL SEARCH =====
+function searchMaterials() {
+  const query = document.getElementById('materialSearchInput').value.trim().toLowerCase();
+  const results = document.getElementById('searchResults');
+
+  if (!query) {
+    results.innerHTML = `
+      <div class="text-center text-slate-600 py-12">
+        <i data-lucide="package-search" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
+        <p>검색어를 입력하면 호환 자재 정보를 표시합니다</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  const matches = Object.entries(compatibleMaterials).filter(([key]) => key.toLowerCase().includes(query) || compatibleMaterials[key].name.toLowerCase().includes(query));
+
+  if (matches.length === 0) {
+    results.innerHTML = `
+      <div class="text-center text-slate-600 py-12">
+        <i data-lucide="search-x" class="w-12 h-12 mx-auto mb-3 opacity-30"></i>
+        <p>"${query}"에 대한 호환 자재 정보가 없습니다</p>
+      </div>
+    `;
+    lucide.createIcons();
+    return;
+  }
+
+  results.innerHTML = matches.map(([key, data]) => `
+    <div class="bg-[#131d33] border border-[#1e3a5f] rounded-xl p-5">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h4 class="text-sm font-bold text-white">${data.name}</h4>
+          <p class="text-xs text-slate-500 mt-1">${data.specs}</p>
+        </div>
+        <span class="px-2 py-0.5 rounded bg-lime-500/10 border border-lime-500/30 text-xs text-lime-400">호환 ${data.compatibles.length}건</span>
+      </div>
+      <div class="space-y-2 mt-4">
+        ${data.compatibles.map(c => {
+          const matchNum = parseInt(c.match);
+          const matchColor = matchNum >= 95 ? 'text-green-400' : matchNum >= 85 ? 'text-yellow-400' : 'text-orange-400';
+          const availColor = c.available > 0 ? 'text-green-400' : 'text-red-400';
+          return `
+            <div class="flex items-center justify-between p-3 rounded-lg bg-[#0d1525] border border-[#1e3a5f]/50">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded bg-[#131d33] flex items-center justify-center">
+                  <i data-lucide="package" class="w-4 h-4 text-slate-500"></i>
+                </div>
+                <div>
+                  <div class="text-sm text-slate-300">${c.name}</div>
+                  <div class="text-[10px] text-slate-600">${c.location}</div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 text-xs">
+                <span class="${matchColor} font-mono">호환율 ${c.match}</span>
+                <span class="${availColor} font-mono">재고 ${c.available}개</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+  lucide.createIcons();
+}
+
+// ===== ENTRY/EXIT LOG =====
+let currentLogFilter = 'all';
+
+function renderLog(filter) {
+  const container = document.getElementById('logTimeline');
+  const filtered = filter === 'all' ? logEntries : logEntries.filter(e => e.type === filter);
+
+  container.innerHTML = filtered.map((entry, i) => {
+    const timeStr = entry.time.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false });
+    const dateStr = entry.time.toLocaleDateString('ko-KR', { month:'2-digit', day:'2-digit' });
+    const isIn = entry.type === '입고';
+    const typeColor = isIn ? 'bg-green-500' : 'bg-blue-500';
+    const typeBadge = isIn ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+    const icon = isIn ? 'package-plus' : 'package-minus';
+
+    return `
+      <div class="flex gap-4 ${i < filtered.length - 1 ? 'pb-4' : ''}">
+        <div class="flex flex-col items-center">
+          <div class="w-8 h-8 rounded-full ${isIn ? 'bg-green-500/10' : 'bg-blue-500/10'} flex items-center justify-center flex-shrink-0">
+            <i data-lucide="${icon}" class="w-4 h-4 ${isIn ? 'text-green-400' : 'text-blue-400'}"></i>
+          </div>
+          ${i < filtered.length - 1 ? '<div class="w-px flex-1 bg-[#1e3a5f] mt-2"></div>' : ''}
+        </div>
+        <div class="flex-1 pb-4 ${i < filtered.length - 1 ? 'border-b border-[#1e3a5f]/30' : ''}">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm text-slate-300 font-medium">${entry.material}</span>
+            <span class="text-xs border rounded-full px-2 py-0.5 ${typeBadge}">${entry.type}</span>
+          </div>
+          <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+            <span>수량: <span class="text-slate-400">${entry.quantity}개</span></span>
+            <span>카메라: <span class="text-slate-400 font-mono">${entry.camera}</span></span>
+            <span>담당: <span class="text-slate-400">${entry.staff}</span></span>
+          </div>
+          <div class="text-[10px] text-slate-600 font-mono mt-1">${dateStr} ${timeStr}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  lucide.createIcons();
+}
+
+function filterLog(filter) {
+  currentLogFilter = filter;
+  document.querySelectorAll('.log-filter-btn').forEach(btn => {
+    const isActive = btn.dataset.filter === filter;
+    btn.className = `log-filter-btn px-3 py-1.5 rounded-lg text-xs border border-[#1e3a5f] ${isActive ? 'bg-lime-500 text-[#070b16] font-semibold' : 'bg-[#131d33] text-slate-400'}`;
+  });
+  renderLog(filter);
+}
+
+// ===== WEEKLY CHART =====
+function renderChart() {
+  const chartContainer = document.getElementById('weeklyChart');
+  const labelsContainer = document.getElementById('chartLabels');
+
+  const days = ['월', '화', '수', '목', '금', '토', '일'];
+  const inbound =  [18, 25, 22, 30, 23, 12, 8];
+  const outbound = [12, 15, 20, 18, 15, 8, 5];
+  const maxVal = Math.max(...inbound, ...outbound);
+
+  chartContainer.innerHTML = days.map((day, i) => {
+    const inH = (inbound[i] / maxVal * 100).toFixed(0);
+    const outH = (outbound[i] / maxVal * 100).toFixed(0);
+    return `
+      <div class="flex-1 flex items-end justify-center gap-1">
+        <div class="w-5 chart-bar" style="height:0%" data-target="${inH}" title="입고: ${inbound[i]}건"></div>
+        <div class="w-5 rounded-t" style="height:0%;background:linear-gradient(to top, #1e40af, #3b82f6);" data-target-out="${outH}" title="출고: ${outbound[i]}건"></div>
+      </div>
+    `;
+  }).join('');
+
+  labelsContainer.innerHTML = days.map(d => `<div class="flex-1 text-center">${d}</div>`).join('');
+
+  // Animate bars
+  setTimeout(() => {
+    chartContainer.querySelectorAll('[data-target]').forEach(bar => {
+      bar.style.height = bar.dataset.target + '%';
+    });
+    chartContainer.querySelectorAll('[data-target-out]').forEach(bar => {
+      bar.style.height = bar.dataset.targetOut + '%';
+      bar.style.transition = 'height 0.6s ease-out';
+    });
+  }, 100);
+}
+
+// ===== TABS =====
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    const isActive = btn.dataset.tab === tabName;
+    btn.classList.toggle('active', isActive);
+    if (isActive) {
+      btn.classList.remove('bg-[#131d33]', 'text-slate-400');
+    } else {
+      btn.classList.add('bg-[#131d33]', 'text-slate-400');
+      btn.classList.remove('active');
+    }
+  });
+  document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+
+  if (tabName === 'chart') renderChart();
+  if (tabName === 'log') renderLog(currentLogFilter);
+}
+
+// ===== INITIALIZATION =====
+function init() {
+  updateClock();
+  renderCCTV();
+  renderInventory(inventoryData);
+  renderLog('all');
+
+  // Add initial alerts
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => addAlert(), i * 200);
+  }
+
+  // Intervals
+  setInterval(updateClock, 1000);
+  setInterval(updateCamTimes, 1000);
+  setInterval(updateInventoryTimes, 5000);
+  setInterval(addAlert, 6000);
+
+  // Simulate stat updates
+  setInterval(() => {
+    const accEl = document.getElementById('statAccuracy');
+    const val = (96.5 + Math.random() * 0.8).toFixed(1);
+    if (accEl) accEl.textContent = val;
+  }, 8000);
+
+  lucide.createIcons();
+}
+
+// Keyboard shortcut: Escape to close expanded camera
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeExpandedCamera();
+});
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
