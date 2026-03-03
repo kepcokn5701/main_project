@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+
+# environment variables
+.env
+
+# IDE / editor
+.vscode/
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# logs
+*.log
+npm-debug.log*
