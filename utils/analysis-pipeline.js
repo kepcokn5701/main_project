@@ -43,8 +43,8 @@ async function runPipeline(rows, onProgress) {
       batch.forEach((row, idx) => {
         sentimentResults.push({
           id: bi * BATCH_SIZE + idx + 1,
-          sentiment: guessSentimentFromRating(row.rating),
-          score: ratingToScore(row.rating),
+          sentiment: guessSentimentFromRating(row.total_score),
+          score: ratingToScore(row.total_score),
           keywords: []
         });
       });
@@ -66,8 +66,8 @@ async function runPipeline(rows, onProgress) {
     const dist = calcSentimentDist(samplesToAnalyze);
     rows.forEach(row => {
       if (!row._sentiment) {
-        row._sentiment = guessSentimentFromRating(row.rating);
-        row._score = ratingToScore(row.rating);
+        row._sentiment = guessSentimentFromRating(row.total_score);
+        row._score = ratingToScore(row.total_score);
         row._keywords = [];
       }
     });
@@ -122,7 +122,7 @@ async function runPipeline(rows, onProgress) {
 async function analyzeSentimentBatch(batch, batchIndex) {
   const system = `You are a Korean customer service sentiment analyzer. You MUST respond with ONLY a valid JSON array. No explanation, no markdown, no code fences.`;
 
-  const comments = batch.map((row, i) => `[${i + 1}] ${row.comment}`).join('\n');
+  const comments = batch.map((row, i) => `[${i + 1}] ${row.opinion}`).join('\n');
 
   const user = `Analyze each Korean survey comment. For each, return sentiment ("positive","neutral","negative"), score (0-100, 0=most negative), and 1-3 Korean keyword phrases.
 
@@ -178,7 +178,7 @@ async function generateInsights(summary, monthlyTrend, keywords, customers) {
 Analysis Summary:
 - 총 설문 수: ${summary.totalSurveys}건
 - 긍정: ${summary.positivePercent}%, 중립: ${summary.neutralPercent}%, 부정: ${summary.negativePercent}%
-- 평균 만족도: ${summary.avgSatisfaction}/5.0
+- 평균 만족도: ${summary.avgSatisfaction}/10.0
 - 고위험 고객 수: ${highRisk}명
 - 주요 부정 키워드: ${negKw || '없음'}
 - 주요 긍정 키워드: ${posKw || '없음'}
@@ -222,16 +222,23 @@ function stratifiedSample(rows, n) {
   return sampled.slice(0, n);
 }
 
-function guessSentimentFromRating(rating) {
-  const r = parseInt(rating) || 3;
-  if (r >= 4) return 'positive';
-  if (r <= 2) return 'negative';
+function parseScore(val) {
+  const n = parseFloat(val);
+  return isNaN(n) ? null : n;
+}
+
+function guessSentimentFromRating(totalScore) {
+  const r = parseScore(totalScore);
+  if (r === null) return 'neutral';
+  if (r >= 7) return 'positive';
+  if (r <= 4) return 'negative';
   return 'neutral';
 }
 
-function ratingToScore(rating) {
-  const r = parseInt(rating) || 3;
-  return Math.min(100, Math.max(0, (r - 1) * 25));
+function ratingToScore(totalScore) {
+  const r = parseScore(totalScore);
+  if (r === null) return 50;
+  return Math.min(100, Math.max(0, Math.round((r - 1) * (100 / 9))));
 }
 
 function calcSentimentDist(rows) {
@@ -248,15 +255,15 @@ function calcSentimentDist(rows) {
 
 function buildSummary(rows, totalCount) {
   const dist = calcSentimentDist(rows);
-  const ratings = rows.map(r => parseFloat(r.rating) || 3);
-  const avgRating = ratings.reduce((a, b) => a + b, 0) / ratings.length;
+  const scores = rows.map(r => parseScore(r.total_score)).filter(s => s !== null);
+  const avgScore = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 5;
 
   return {
     totalSurveys: totalCount,
     positivePercent: dist.positive,
     neutralPercent: dist.neutral,
     negativePercent: dist.negative,
-    avgSatisfaction: Math.round(avgRating * 10) / 10
+    avgSatisfaction: Math.round(avgScore * 10) / 10
   };
 }
 
@@ -281,37 +288,37 @@ function buildMonthlyTrend(rows) {
 }
 
 function buildCustomerList(rows) {
-  // Group by customer_id, take latest survey per customer
-  const byCustomer = {};
-  rows.forEach(r => {
-    const cid = r.customer_id;
-    if (!byCustomer[cid] || r.survey_date > byCustomer[cid].survey_date) {
-      byCustomer[cid] = r;
-    }
+  return rows.map(r => {
+    const ts = parseScore(r.total_score);
+    let risk;
+    if (ts === null || ts <= 4) risk = 'high';
+    else if (ts <= 6) risk = 'mid';
+    else risk = 'low';
+
+    return {
+      branch: r.branch || '',
+      contractType: r.contract_type || '',
+      receiptType: r.receipt_type || '',
+      taskType: r.task_type || '',
+      applyMethod: r.apply_method || '',
+      convenience: r.convenience || '-',
+      kindness: r.kindness || '-',
+      overallSatisfaction: r.overall_satisfaction || '-',
+      socialResponsibility: r.social_responsibility || '-',
+      speed: r.speed || '-',
+      accuracy: r.accuracy || '-',
+      improvement: r.improvement || '-',
+      recommendation: r.recommendation || '-',
+      totalScore: r.total_score || '-',
+      opinion: r.opinion || '',
+      sentiment: r._sentiment || guessSentimentFromRating(r.total_score),
+      risk
+    };
+  }).sort((a, b) => {
+    const sa = parseScore(a.totalScore) ?? 99;
+    const sb = parseScore(b.totalScore) ?? 99;
+    return sa - sb;
   });
-
-  return Object.values(byCustomer)
-    .map(r => {
-      const score = r._score ?? ratingToScore(r.rating);
-      let risk;
-      if (score < 30) risk = 'high';
-      else if (score < 55) risk = 'mid';
-      else risk = 'low';
-
-      return {
-        id: r.customer_id,
-        name: r.customer_name,
-        region: r.region,
-        score: Math.round(score * 10) / 10,
-        risk,
-        inquiry: r.inquiry_type,
-        date: (r.survey_date || '').replace(/-/g, '.'),
-        sentiment: r._sentiment || guessSentimentFromRating(r.rating),
-        comment: r.comment,
-        rating: r.rating
-      };
-    })
-    .sort((a, b) => a.score - b.score);
 }
 
 function mode(arr) {

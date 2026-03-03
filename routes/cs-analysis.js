@@ -30,7 +30,7 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: 'CSV 파싱 실패', details: e.message });
   }
 
-  const required = ['customer_id', 'customer_name', 'region', 'inquiry_type', 'survey_date', 'rating', 'comment'];
+  const required = ['survey_date', 'branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
   const columns = Object.keys(rows[0] || {});
   const missing = required.filter(c => !columns.includes(c));
   if (missing.length > 0) {
@@ -137,10 +137,10 @@ router.get('/export/:id', (req, res) => {
   const entry = store[req.params.id];
   if (!entry || !entry.results) return res.status(404).json({ error: '분석 결과가 없습니다' });
 
-  const customers = entry.results.customers;
-  const header = '고객ID,이름,지역,감성점수,위험등급,문의유형,설문일자,감성분류';
-  const csvRows = customers.map(c =>
-    `${c.id},${c.name},${c.region},${c.score},${c.risk},${c.inquiry},${c.date},${c.sentiment}`
+  const surveys = entry.results.customers;
+  const header = '지사,계약종별,접수종류,업무구분,신청방법,이용편리성,직원친절도,전반적만족,사회적책임,처리신속도,처리정확도,업무개선도,사용추천도,종합점수,서술의견,감성분류';
+  const csvRows = surveys.map(c =>
+    `${c.branch},${c.contractType},${c.receiptType},${c.taskType},${c.applyMethod},${c.convenience},${c.kindness},${c.overallSatisfaction},${c.socialResponsibility},${c.speed},${c.accuracy},${c.improvement},${c.recommendation},${c.totalScore},"${(c.opinion||'').replace(/"/g,'""')}",${c.sentiment}`
   );
   const csv = '\uFEFF' + header + '\n' + csvRows.join('\n');
 

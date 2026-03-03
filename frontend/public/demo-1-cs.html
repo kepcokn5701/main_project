@@ -420,13 +420,21 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;colo
         <table class="data-table" id="customerTable">
           <thead>
             <tr>
-              <th>고객번호</th>
-              <th>이름</th>
-              <th>지역</th>
-              <th>감성점수</th>
-              <th>위험등급</th>
-              <th>최근 문의</th>
-              <th>문의일자</th>
+              <th>지사</th>
+              <th>계약종별</th>
+              <th>접수종류</th>
+              <th>업무구분</th>
+              <th>신청방법</th>
+              <th>이용 편리성</th>
+              <th>직원 친절도</th>
+              <th>전반적 만족</th>
+              <th>사회적 책임</th>
+              <th>처리 신속도</th>
+              <th>처리 정확도</th>
+              <th>업무 개선도</th>
+              <th>사용 추천도</th>
+              <th>종합 점수</th>
+              <th>서술 의견</th>
             </tr>
           </thead>
           <tbody id="customerTableBody">
@@ -486,83 +494,63 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;colo
 // DATA GENERATION
 // ═══════════════════════════════════════════════════════════
 
-const LAST_NAMES = ['김','이','박','최','정','강','조','윤','장','임','한','오','서','신','권','황','안','송','류','전','홍','고','문','양','손','배','백','허','유','남','심','노','하','곽','성','차','주','우','구','민','탁','진','엄','채','원','천','방','공','현'];
-const FIRST_NAMES = ['민준','서준','도윤','예준','시우','하준','주원','지호','지후','준서','현우','건우','수아','서연','지우','하은','서윤','민서','하린','채원','지아','은서','다은','예원','수빈','지연','유진','소영','미경','현정','성호','영수','태영','재현','동훈','상우','진수','기영','용석','명진','정희','미숙','영자','순자','은주','혜진','성민','재영','광수','원빈'];
-const REGIONS = [
-  '서울 강남구','서울 서초구','서울 마포구','서울 송파구','서울 영등포구','서울 종로구','서울 강서구','서울 관악구',
-  '부산 해운대구','부산 수영구','부산 남구','부산 동래구',
-  '인천 남동구','인천 연수구','인천 부평구',
-  '대구 수성구','대구 달서구','대구 중구',
-  '광주 북구','광주 서구',
-  '대전 유성구','대전 서구',
-  '울산 남구','울산 중구',
-  '경기 성남시','경기 수원시','경기 고양시','경기 용인시','경기 화성시','경기 안양시',
-  '강원 춘천시','강원 원주시',
-  '충남 천안시','충북 청주시',
-  '전북 전주시','전남 여수시',
-  '경북 포항시','경남 창원시',
-  '제주 제주시','제주 서귀포시'
-];
-const INQUIRY_TYPES = [
-  '요금 과다 청구 문의','전력 공급 불안정 민원','검침 오류 신고','정전 피해 보상 요청',
-  '요금 할인 문의','전기 안전 점검 요청','스마트미터 오류 신고','전기차 충전 요금 문의',
-  '신규 전기 신청','명의 변경 요청','요금 납부 방법 문의','에너지 절약 상담',
-  '고압적 응대 불만','처리 지연 불만','답변 미흡 불만','재발 문의','시설물 파손 신고',
-  '전력 품질 개선 요청','야간 작업 소음 민원','공사 일정 문의'
-];
+const BRANCHES = ['서울남부','서울북부','인천','경기동부','경기서부','강원','충북','충남','대전','전북','전남','광주','경북','경남','대구','부산','울산','제주'];
+const CONTRACT_TYPES = ['주택용','일반용','교육용','산업용','농사용'];
+const RECEIPT_TYPES = ['신규접수','변경','해지','요금문의','고장수리','계량기교체'];
+const TASK_TYPES = ['전기사용신청','요금정산','고장처리','계량기','안전점검','신재생에너지','기타'];
+const APPLY_METHODS = ['방문','전화','인터넷','모바일앱'];
+const SAMPLE_OPINIONS_POS = ['직원분이 매우 친절하고 신속하게 처리해주셨습니다.','모바일앱으로 간편하게 처리할 수 있어서 편리했습니다.','전화 상담이 빠르고 정확했습니다.','에너지 절약 상담이 도움이 되었습니다.','고장 접수 후 당일 처리해주셨습니다.','안전점검을 꼼꼼히 해주셔서 안심됩니다.'];
+const SAMPLE_OPINIONS_NEU = ['보통 수준의 서비스였습니다.','처리는 되었으나 시간이 걸렸습니다.','일반적인 수준의 응대였습니다.','특별한 불만 없이 무난했습니다.','기본적인 업무는 잘 처리되었습니다.','-'];
+const SAMPLE_OPINIONS_NEG = ['전화 연결 대기 시간이 너무 깁니다.','고장 수리가 너무 느립니다.','상담원 답변이 부정확했습니다.','방문 약속 시간을 지키지 않았습니다.','모바일앱 오류가 잦습니다.','요금 고지서가 이해하기 어렵습니다.'];
 
-function genCustomerId(){
-  return 'KE'+String(Math.floor(Math.random()*90000000)+10000000);
-}
-function genName(){
-  return LAST_NAMES[Math.floor(Math.random()*LAST_NAMES.length)] + FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)];
-}
-function genRegion(){
-  return REGIONS[Math.floor(Math.random()*REGIONS.length)];
-}
-function genInquiry(){
-  return INQUIRY_TYPES[Math.floor(Math.random()*INQUIRY_TYPES.length)];
-}
-function genDate(){
-  const m = Math.floor(Math.random()*12)+1;
-  const d = Math.floor(Math.random()*28)+1;
-  return `2025.${String(m).padStart(2,'0')}.${String(d).padStart(2,'0')}`;
-}
-function genSentimentScore(riskLevel){
-  if(riskLevel==='high') return (Math.random()*20+5).toFixed(1);
-  if(riskLevel==='mid') return (Math.random()*20+30).toFixed(1);
-  return (Math.random()*25+55).toFixed(1);
-}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function rndScore(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function maybeNull(val){ return Math.random()<0.08?'-':String(val); }
 
 let customers = [];
 function generateCustomers(){
   customers = [];
-  const riskDist = [];
-  for(let i=0;i<8;i++) riskDist.push('high');
-  for(let i=0;i<9;i++) riskDist.push('mid');
-  for(let i=0;i<7;i++) riskDist.push('low');
-  // shuffle
-  for(let i=riskDist.length-1;i>0;i--){
-    const j=Math.floor(Math.random()*(i+1));
-    [riskDist[i],riskDist[j]]=[riskDist[j],riskDist[i]];
-  }
   for(let i=0;i<24;i++){
-    const risk = riskDist[i];
+    const level = Math.random();
+    let base;
+    if(level<0.3) base=rndScore(1,4);
+    else if(level<0.6) base=rndScore(4,7);
+    else base=rndScore(7,10);
+
+    const conv=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const kind=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const over=maybeNull(Math.min(10,Math.max(1,base+rndScore(-1,1))));
+    const soc=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const spd=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const acc=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const imp=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const rec=maybeNull(Math.min(10,Math.max(1,base+rndScore(-2,2))));
+    const nums=[conv,kind,over,soc,spd,acc,imp,rec].filter(s=>s!=='-').map(Number);
+    const total=nums.length>0?(nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(1):'-';
+    const ts=parseFloat(total);
+
+    let opinion;
+    if(ts>=7) opinion=pick(SAMPLE_OPINIONS_POS);
+    else if(ts>=4) opinion=pick(SAMPLE_OPINIONS_NEU);
+    else opinion=pick(SAMPLE_OPINIONS_NEG);
+
+    let risk;
+    if(isNaN(ts)||ts<=4) risk='high';
+    else if(ts<=6) risk='mid';
+    else risk='low';
+
     customers.push({
-      id: genCustomerId(),
-      name: genName(),
-      region: genRegion(),
-      score: parseFloat(genSentimentScore(risk)),
-      risk: risk,
-      inquiry: genInquiry(),
-      date: genDate(),
-      phone: `010-${Math.floor(Math.random()*9000+1000)}-${Math.floor(Math.random()*9000+1000)}`,
-      email: `user${Math.floor(Math.random()*999)}@example.com`,
-      visits: Math.floor(Math.random()*15)+1,
-      lastSurvey: (Math.random()*4+1).toFixed(1)
+      branch:pick(BRANCHES), contractType:pick(CONTRACT_TYPES), receiptType:pick(RECEIPT_TYPES),
+      taskType:pick(TASK_TYPES), applyMethod:pick(APPLY_METHODS),
+      convenience:conv, kindness:kind, overallSatisfaction:over, socialResponsibility:soc,
+      speed:spd, accuracy:acc, improvement:imp, recommendation:rec,
+      totalScore:total, opinion:opinion, risk:risk, sentiment:'neutral'
     });
   }
-  customers.sort((a,b)=>a.score-b.score);
+  customers.sort((a,b)=>{
+    const sa=parseFloat(a.totalScore)||99, sb=parseFloat(b.totalScore)||99;
+    return sa-sb;
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -798,13 +786,7 @@ function showDashboard(data){
 
     // Update customers from API
     if (data.customers && data.customers.length > 0) {
-      customers = data.customers.map(c => ({
-        ...c,
-        phone: `010-****-${String(Math.floor(Math.random()*9000+1000))}`,
-        email: `${c.name.charAt(0)}***@example.com`,
-        visits: Math.floor(Math.random()*10)+1,
-        lastSurvey: c.rating || (Math.random()*4+1).toFixed(1)
-      }));
+      customers = data.customers;
     } else {
       generateCustomers();
     }
@@ -1001,6 +983,18 @@ function renderInsights(){
 
 let currentFilter = 'all';
 
+function scoreColor(val){
+  const n=parseFloat(val);
+  if(isNaN(n)) return '#94a3b8';
+  if(n<=4) return '#ef4444';
+  if(n<=6) return '#fb923c';
+  return '#22c55e';
+}
+function scoreTd(val){
+  const c=scoreColor(val);
+  return `<td class="text-center text-xs font-mono" style="color:${c}">${val}</td>`;
+}
+
 function renderCustomerTable(filter){
   filter = filter || currentFilter;
   const tbody = document.getElementById('customerTableBody');
@@ -1010,30 +1004,28 @@ function renderCustomerTable(filter){
 
   filtered.forEach((c,i)=>{
     const tr = document.createElement('tr');
-    tr.style.cssText = `animation:fadeInUp .3s ease ${i*0.03}s both;`;
+    tr.style.cssText = `animation:fadeInUp .3s ease ${i*0.03}s both;cursor:pointer;`;
     tr.onclick = ()=>showCustomerDetail(c);
 
-    const riskLabel = c.risk==='high'?'상':c.risk==='mid'?'중':'하';
-    const riskClass = c.risk==='high'?'risk-high':c.risk==='mid'?'risk-mid':'risk-low';
-
-    // Score bar
-    const scoreColor = c.score < 30 ? '#ef4444' : c.score < 50 ? '#fb923c' : '#22c55e';
+    const ts = parseFloat(c.totalScore);
+    const totalColor = scoreColor(c.totalScore);
 
     tr.innerHTML = `
-      <td class="font-mono text-xs text-slate-500">${c.id}</td>
-      <td class="font-medium text-white">${c.name}</td>
-      <td class="text-slate-400">${c.region}</td>
-      <td>
-        <div class="flex items-center gap-2">
-          <div class="w-16 h-1.5 rounded-full" style="background:rgba(30,41,59,.8);">
-            <div class="h-full rounded-full" style="background:${scoreColor};width:${c.score}%;transition:width .5s;"></div>
-          </div>
-          <span class="text-xs font-mono" style="color:${scoreColor}">${c.score}</span>
-        </div>
-      </td>
-      <td><span class="risk-badge ${riskClass}">${riskLabel}</span></td>
-      <td class="text-slate-400 text-xs" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.inquiry}</td>
-      <td class="text-slate-500 text-xs font-mono">${c.date}</td>
+      <td class="text-slate-300 text-xs whitespace-nowrap">${c.branch}</td>
+      <td class="text-slate-400 text-xs whitespace-nowrap">${c.contractType}</td>
+      <td class="text-slate-400 text-xs whitespace-nowrap">${c.receiptType}</td>
+      <td class="text-slate-400 text-xs whitespace-nowrap">${c.taskType}</td>
+      <td class="text-slate-400 text-xs whitespace-nowrap">${c.applyMethod}</td>
+      ${scoreTd(c.convenience)}
+      ${scoreTd(c.kindness)}
+      ${scoreTd(c.overallSatisfaction)}
+      ${scoreTd(c.socialResponsibility)}
+      ${scoreTd(c.speed)}
+      ${scoreTd(c.accuracy)}
+      ${scoreTd(c.improvement)}
+      ${scoreTd(c.recommendation)}
+      <td class="text-center text-xs font-bold" style="color:${totalColor}">${c.totalScore}</td>
+      <td class="text-slate-400 text-xs" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.opinion||'-'}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -1064,86 +1056,76 @@ function showCustomerDetail(c){
 
   const riskLabel = c.risk==='high'?'상':c.risk==='mid'?'중':'하';
   const riskClass = c.risk==='high'?'risk-high':c.risk==='mid'?'risk-mid':'risk-low';
-  const scoreColor = c.score < 30 ? '#ef4444' : c.score < 50 ? '#fb923c' : '#22c55e';
+  const totalClr = scoreColor(c.totalScore);
 
   const riskAction = c.risk === 'high'
-    ? '즉시 전담 매니저 배정 및 개인화된 사과 연락 권고'
+    ? '종합 점수가 낮습니다. 즉시 원인 파악 및 개선 조치가 필요합니다.'
     : c.risk === 'mid'
-    ? '1주 이내 만족도 향상 프로그램 안내 권고'
-    : '정기 만족도 모니터링 유지';
+    ? '일부 항목에서 개선이 필요합니다. 모니터링을 강화해주세요.'
+    : '전반적으로 양호합니다. 현재 수준을 유지해주세요.';
 
-  // Interaction history from actual data
-  const sentimentLabel = c.sentiment === 'positive' ? '긍정' : c.sentiment === 'negative' ? '부정' : '중립';
-  const historyItems = [
-    {date: c.date || '2025.01.01', type: '설문', summary: c.inquiry || '문의', sentiment: sentimentLabel},
+  const scoreItems = [
+    {label:'이용 편리성', val:c.convenience},
+    {label:'직원 친절도', val:c.kindness},
+    {label:'전반적 만족', val:c.overallSatisfaction},
+    {label:'사회적 책임', val:c.socialResponsibility},
+    {label:'처리 신속도', val:c.speed},
+    {label:'처리 정확도', val:c.accuracy},
+    {label:'업무 개선도', val:c.improvement},
+    {label:'사용 추천도', val:c.recommendation},
   ];
-  if (c.comment) {
-    historyItems.push({date: c.date || '2025.01.01', type: '코멘트', summary: c.comment.slice(0, 50) + (c.comment.length > 50 ? '...' : ''), sentiment: sentimentLabel});
-  }
 
   content.innerHTML = `
     <div class="flex items-center justify-between mb-6">
       <h3 class="text-lg font-bold text-white flex items-center gap-2">
-        <i data-lucide="user-circle" class="w-5 h-5 text-sky-400"></i>
-        고객 상세 정보
+        <i data-lucide="clipboard-list" class="w-5 h-5 text-sky-400"></i>
+        설문 상세 정보
       </h3>
       <button onclick="closeCustomerModal()" class="text-slate-500 hover:text-white transition-colors">
         <i data-lucide="x" class="w-5 h-5"></i>
       </button>
     </div>
 
-    <!-- Profile Header -->
+    <!-- Header -->
     <div class="flex items-center gap-4 p-4 rounded-xl mb-5" style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.08);">
-      <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold" style="background:linear-gradient(135deg,rgba(56,189,248,.2),rgba(99,102,241,.2));color:#38bdf8;border:2px solid rgba(56,189,248,.2);">
-        ${c.name.charAt(0)}
-      </div>
       <div class="flex-1">
-        <div class="flex items-center gap-2 mb-1">
-          <span class="text-white font-semibold text-lg">${c.name}</span>
+        <div class="flex items-center gap-2 mb-1 flex-wrap">
+          <span class="text-white font-semibold">${c.branch}</span>
           <span class="risk-badge ${riskClass} text-xs">${riskLabel}</span>
         </div>
-        <div class="flex items-center gap-3 text-xs text-slate-500">
-          <span class="font-mono">${c.id}</span>
-          <span>${c.region}</span>
+        <div class="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+          <span>${c.contractType}</span>
+          <span>·</span>
+          <span>${c.receiptType}</span>
+          <span>·</span>
+          <span>${c.taskType}</span>
+          <span>·</span>
+          <span>${c.applyMethod}</span>
         </div>
       </div>
       <div class="text-right">
-        <div class="text-3xl font-bold" style="color:${scoreColor}">${c.score}</div>
-        <div class="text-xs text-slate-500">감성점수</div>
+        <div class="text-3xl font-bold" style="color:${totalClr}">${c.totalScore}</div>
+        <div class="text-xs text-slate-500">종합 점수</div>
       </div>
     </div>
 
-    <!-- Info Grid -->
-    <div class="grid grid-cols-2 gap-3 mb-5">
-      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
-        <div class="text-xs text-slate-500 mb-1">연락처</div>
-        <div class="text-sm text-slate-300">${c.phone}</div>
-      </div>
-      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
-        <div class="text-xs text-slate-500 mb-1">이메일</div>
-        <div class="text-sm text-slate-300">${c.email}</div>
-      </div>
-      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
-        <div class="text-xs text-slate-500 mb-1">총 문의 횟수</div>
-        <div class="text-sm text-white font-semibold">${c.visits}회</div>
-      </div>
-      <div class="p-3 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
-        <div class="text-xs text-slate-500 mb-1">최근 설문 평점</div>
-        <div class="text-sm text-white font-semibold">${c.lastSurvey}/5.0</div>
-      </div>
-    </div>
-
-    <!-- Score Bar Visualization -->
-    <div class="mb-5">
-      <div class="text-xs text-slate-500 mb-2">감성 점수 분포</div>
-      <div class="relative h-3 rounded-full" style="background:linear-gradient(90deg,#ef4444,#fb923c,#fbbf24,#22c55e);opacity:.3;">
-      </div>
-      <div class="relative" style="margin-top:-12px;">
-        <div class="w-4 h-4 rounded-full border-2 border-white" style="background:${scoreColor};position:absolute;left:${c.score}%;transform:translateX(-50%);box-shadow:0 0 8px ${scoreColor};"></div>
-      </div>
-      <div class="flex justify-between text-xs text-slate-600 mt-3">
-        <span>위험</span><span>주의</span><span>보통</span><span>양호</span>
-      </div>
+    <!-- Score Grid -->
+    <div class="grid grid-cols-2 gap-2 mb-5">
+      ${scoreItems.map(s=>{
+        const n=parseFloat(s.val);
+        const clr=scoreColor(s.val);
+        const pct=isNaN(n)?0:n*10;
+        return `
+          <div class="p-2.5 rounded-lg" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-xs text-slate-500">${s.label}</span>
+              <span class="text-xs font-bold" style="color:${clr}">${s.val}</span>
+            </div>
+            <div class="w-full h-1.5 rounded-full" style="background:rgba(30,41,59,.8);">
+              <div class="h-full rounded-full transition-all" style="background:${clr};width:${pct}%;"></div>
+            </div>
+          </div>`;
+      }).join('')}
     </div>
 
     <!-- AI Recommendation -->
@@ -1155,30 +1137,23 @@ function showCustomerDetail(c){
       <p class="text-xs text-slate-400 leading-relaxed">${riskAction}</p>
     </div>
 
-    <!-- Recent Interactions -->
-    <div>
-      <div class="text-xs text-slate-500 mb-3 font-semibold uppercase tracking-wide">최근 상호작용 이력</div>
-      ${historyItems.map(h=>{
-        const sentColor = h.sentiment==='부정'?'#f87171':h.sentiment==='긍정'?'#22c55e':'#94a3b8';
-        return `
-          <div class="flex items-center gap-3 py-2.5 border-b" style="border-color:rgba(148,163,184,.06);">
-            <span class="text-xs text-slate-500 font-mono w-20 flex-shrink-0">${h.date}</span>
-            <span class="px-2 py-0.5 rounded text-xs flex-shrink-0" style="background:rgba(56,189,248,.1);color:#7dd3fc;">${h.type}</span>
-            <span class="text-xs text-slate-400 flex-1 truncate">${h.summary}</span>
-            <span class="text-xs flex-shrink-0" style="color:${sentColor}">${h.sentiment}</span>
-          </div>`;
-      }).join('')}
+    <!-- Opinion -->
+    <div class="mb-5">
+      <div class="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wide">서술 의견</div>
+      <div class="p-3 rounded-lg text-sm text-slate-300 leading-relaxed" style="background:rgba(15,23,42,.4);border:1px solid rgba(148,163,184,.06);">
+        ${c.opinion && c.opinion !== '-' ? c.opinion : '<span class="text-slate-600">의견 없음</span>'}
+      </div>
     </div>
 
     <!-- Action Buttons -->
-    <div class="flex items-center gap-2 mt-6">
-      <button class="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('해당 고객에게 담당 매니저가 배정되었습니다')">
-        <i data-lucide="user-check" class="w-4 h-4"></i>
-        매니저 배정
+    <div class="flex items-center gap-2 mt-4">
+      <button class="btn-primary flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('해당 건에 대한 개선 조치가 접수되었습니다')">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        개선 조치 접수
       </button>
-      <button class="btn-ghost flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('케어 프로그램 안내가 발송되었습니다')">
-        <i data-lucide="mail" class="w-4 h-4"></i>
-        케어 안내 발송
+      <button class="btn-ghost flex-1 text-sm flex items-center justify-center gap-1.5" onclick="showToast('담당 부서에 전달되었습니다')">
+        <i data-lucide="send" class="w-4 h-4"></i>
+        부서 전달
       </button>
     </div>
   `;
@@ -1245,13 +1220,7 @@ async function refreshData(){
       const r = await fetch(`/api/cs/results/${currentAnalysisId}`);
       const results = await r.json();
       if (results.customers) {
-        customers = results.customers.map(c => ({
-          ...c,
-          phone: `010-****-${String(Math.floor(Math.random()*9000+1000))}`,
-          email: `${c.name.charAt(0)}***@example.com`,
-          visits: Math.floor(Math.random()*10)+1,
-          lastSurvey: c.rating || (Math.random()*4+1).toFixed(1)
-        }));
+        customers = results.customers;
       }
     } catch(e) {
       console.error('Refresh failed:', e);
