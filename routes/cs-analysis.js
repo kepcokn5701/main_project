@@ -122,7 +122,20 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
   const columns = Object.keys(rows[0] || {});
   const missing = required.filter(c => !columns.includes(c));
   if (missing.length > 0) {
-    return res.status(400).json({ error: `필수 컬럼 누락: ${missing.join(', ')}` });
+    // Build diagnostic info: show detected headers and which ones mapped/unmapped
+    const originalHeaders = Object.keys(rows[0] || {});
+    const mappedHeaders = originalHeaders.filter(k => KO_TO_EN[k]).map(k => `${k} → ${KO_TO_EN[k]}`);
+    const unmappedHeaders = originalHeaders.filter(k => !KO_TO_EN[k] && !required.includes(k));
+    return res.status(400).json({
+      error: `필수 컬럼 누락: ${missing.join(', ')}`,
+      debug: {
+        detectedHeaders: originalHeaders,
+        mappedHeaders,
+        unmappedHeaders,
+        needsMapping,
+        totalRows: rows.length,
+      }
+    });
   }
 
   // Data quality warnings
