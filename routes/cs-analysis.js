@@ -55,6 +55,41 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: '데이터가 없습니다' });
   }
 
+  // Korean → English column name mapping (supports both spaced and non-spaced variants)
+  const KO_TO_EN = {
+    '지사': 'branch',
+    '계약종별': 'contract_type',
+    '접수종류': 'receipt_type',
+    '업무구분': 'task_type',
+    '신청방법': 'apply_method',
+    '접수자구분': 'receiver_type',
+    '이용편리성': 'convenience', '이용 편리성': 'convenience',
+    '직원친절도': 'kindness', '직원 친절도': 'kindness',
+    '전반적만족': 'overall_satisfaction', '전반적 만족': 'overall_satisfaction', '전반적만족도': 'overall_satisfaction',
+    '사회적책임': 'social_responsibility', '사회적 책임': 'social_responsibility',
+    '처리신속도': 'speed', '처리 신속도': 'speed',
+    '처리정확도': 'accuracy', '처리 정확도': 'accuracy',
+    '업무개선도': 'improvement', '업무 개선도': 'improvement',
+    '사용추천도': 'recommendation', '사용 추천도': 'recommendation',
+    '종합점수': 'total_score', '종합 점수': 'total_score',
+    '서술의견': 'opinion', '서술 의견': 'opinion',
+    '설문일자': 'survey_date', '조사일자': 'survey_date', '조사일': 'survey_date', '날짜': 'survey_date', '일자': 'survey_date',
+  };
+
+  // Auto-map Korean column names to English if needed
+  const firstRowKeys = Object.keys(rows[0] || {});
+  const needsMapping = firstRowKeys.some(k => KO_TO_EN[k]);
+  if (needsMapping) {
+    rows = rows.map(row => {
+      const mapped = {};
+      Object.entries(row).forEach(([key, val]) => {
+        const engKey = KO_TO_EN[key] || key;
+        mapped[engKey] = val;
+      });
+      return mapped;
+    });
+  }
+
   const required = ['branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'receiver_type', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
   const columns = Object.keys(rows[0] || {});
   const missing = required.filter(c => !columns.includes(c));
