@@ -55,7 +55,7 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: '데이터가 없습니다' });
   }
 
-  const required = ['branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
+  const required = ['branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'receiver_type', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
   const columns = Object.keys(rows[0] || {});
   const missing = required.filter(c => !columns.includes(c));
   if (missing.length > 0) {
@@ -192,9 +192,9 @@ router.get('/export/:id', (req, res) => {
   if (!entry || !entry.results) return res.status(404).json({ error: '분석 결과가 없습니다' });
 
   const surveys = entry.results.customers;
-  const header = '지사,계약종별,접수종류,업무구분,신청방법,이용편리성,직원친절도,전반적만족,사회적책임,처리신속도,처리정확도,업무개선도,사용추천도,종합점수,서술의견,감성분류';
+  const header = '지사,계약종별,접수종류,업무구분,신청방법,접수자구분,이용편리성,직원친절도,전반적만족,사회적책임,처리신속도,처리정확도,업무개선도,사용추천도,종합점수,서술의견,감성분류';
   const csvRows = surveys.map(c =>
-    `${c.branch},${c.contractType},${c.receiptType},${c.taskType},${c.applyMethod},${c.convenience},${c.kindness},${c.overallSatisfaction},${c.socialResponsibility},${c.speed},${c.accuracy},${c.improvement},${c.recommendation},${c.totalScore},"${(c.opinion||'').replace(/"/g,'""')}",${c.sentiment}`
+    `${c.branch},${c.contractType},${c.receiptType},${c.taskType},${c.applyMethod},${c.receiverType},${c.convenience},${c.kindness},${c.overallSatisfaction},${c.socialResponsibility},${c.speed},${c.accuracy},${c.improvement},${c.recommendation},${c.totalScore},"${(c.opinion||'').replace(/"/g,'""')}",${c.sentiment}`
   );
   const csv = '\uFEFF' + header + '\n' + csvRows.join('\n');
 

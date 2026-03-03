@@ -319,6 +319,7 @@ function buildCustomerList(rows) {
       receiptType: r.receipt_type || '',
       taskType: r.task_type || '',
       applyMethod: r.apply_method || '',
+      receiverType: r.receiver_type || '',
       convenience: r.convenience || '-',
       kindness: r.kindness || '-',
       overallSatisfaction: r.overall_satisfaction || '-',
