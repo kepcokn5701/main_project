@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { parse } = require('csv-parse/sync');
+const XLSX = require('xlsx');
 const { runPipeline } = require('../utils/analysis-pipeline');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
@@ -13,21 +14,45 @@ function genId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// POST /api/cs/upload — Upload CSV and start analysis
+// POST /api/cs/upload — Upload CSV/Excel and start analysis
 router.post('/upload', upload.single('csvFile'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'CSV 파일이 필요합니다' });
+  if (!req.file) return res.status(400).json({ error: '파일이 필요합니다 (CSV, XLSX, XLS)' });
 
+  const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
   let rows;
+
   try {
-    const csvContent = req.file.buffer.toString('utf-8');
-    rows = parse(csvContent, {
-      columns: true,
-      skip_empty_lines: true,
-      trim: true,
-      bom: true
-    });
+    if (ext === 'xlsx' || ext === 'xls') {
+      // Excel parsing
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      // Trim all string values and convert column names
+      rows = rows.map(row => {
+        const cleaned = {};
+        Object.entries(row).forEach(([key, val]) => {
+          const k = String(key).trim();
+          cleaned[k] = typeof val === 'string' ? val.trim() : String(val);
+        });
+        return cleaned;
+      });
+    } else {
+      // CSV parsing (default)
+      const csvContent = req.file.buffer.toString('utf-8');
+      rows = parse(csvContent, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        bom: true
+      });
+    }
   } catch (e) {
-    return res.status(400).json({ error: 'CSV 파싱 실패', details: e.message });
+    return res.status(400).json({ error: '파일 파싱 실패', details: e.message });
+  }
+
+  if (!rows || rows.length === 0) {
+    return res.status(400).json({ error: '데이터가 없습니다' });
   }
 
   const required = ['branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
@@ -35,10 +60,6 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
   const missing = required.filter(c => !columns.includes(c));
   if (missing.length > 0) {
     return res.status(400).json({ error: `필수 컬럼 누락: ${missing.join(', ')}` });
-  }
-
-  if (rows.length === 0) {
-    return res.status(400).json({ error: '데이터가 없습니다' });
   }
 
   // Data quality warnings

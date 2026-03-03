@@ -163,7 +163,7 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;colo
       </div>
     </div>
 
-    <input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleFileSelect(event)">
+    <input type="file" id="csvFileInput" accept=".csv,.xlsx,.xls" style="display:none" onchange="handleFileSelect(event)">
     <div id="uploadZone" class="upload-zone" onclick="document.getElementById('csvFileInput').click()" ondragover="event.preventDefault();this.classList.add('dragging')" ondragleave="this.classList.remove('dragging')" ondrop="event.preventDefault();this.classList.remove('dragging');handleDrop(event)">
       <div id="uploadContent">
         <div style="width:80px;height:80px;margin:0 auto 20px;border-radius:50%;background:linear-gradient(135deg,rgba(14,165,233,.1),rgba(99,102,241,.1));border:2px solid rgba(56,189,248,.15);display:flex;align-items:center;justify-content:center;animation:float 3s ease-in-out infinite;">
