@@ -28,11 +28,11 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      // Trim all string values and convert column names
+      // Trim all string values and normalize column names (fix non-breaking spaces)
       rows = rows.map(row => {
         const cleaned = {};
         Object.entries(row).forEach(([key, val]) => {
-          const k = String(key).trim();
+          const k = String(key).replace(/[\u00A0\u3000\uFEFF\u200B]/g, ' ').replace(/\s+/g, ' ').trim();
           cleaned[k] = typeof val === 'string' ? val.trim() : String(val);
         });
         return cleaned;
@@ -55,25 +55,53 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: '데이터가 없습니다' });
   }
 
-  // Korean → English column name mapping (supports both spaced and non-spaced variants)
+  // Korean → English column name mapping (supports various header variants)
   const KO_TO_EN = {
     '지사': 'branch',
-    '계약종별': 'contract_type',
+    '계약종별': 'contract_type', '게약종별': 'contract_type',
     '접수종류': 'receipt_type',
-    '업무구분': 'task_type',
-    '신청방법': 'apply_method',
-    '접수자구분': 'receiver_type',
+    '업무구분': 'task_type', '업무 구분': 'task_type',
+    '신청방법': 'apply_method', '신청 방법': 'apply_method',
+    '접수자구분': 'receiver_type', '접수자 구분': 'receiver_type',
+    // convenience
     '이용편리성': 'convenience', '이용 편리성': 'convenience',
+    '이용편리': 'convenience', '이용 편리': 'convenience',
+    // kindness
     '직원친절도': 'kindness', '직원 친절도': 'kindness',
-    '전반적만족': 'overall_satisfaction', '전반적 만족': 'overall_satisfaction', '전반적만족도': 'overall_satisfaction',
+    '직원친절성': 'kindness', '직원 친절성': 'kindness',
+    '직원친절': 'kindness', '직원 친절': 'kindness',
+    // overall_satisfaction
+    '전반적만족': 'overall_satisfaction', '전반적 만족': 'overall_satisfaction',
+    '전반적만족도': 'overall_satisfaction', '전반적 만족도': 'overall_satisfaction',
+    '전반만족': 'overall_satisfaction', '전반 만족': 'overall_satisfaction',
+    // social_responsibility
     '사회적책임': 'social_responsibility', '사회적 책임': 'social_responsibility',
+    '사회책임': 'social_responsibility', '사회 책임': 'social_responsibility',
+    // speed
     '처리신속도': 'speed', '처리 신속도': 'speed',
+    '처리신속': 'speed', '처리 신속': 'speed',
+    // accuracy
     '처리정확도': 'accuracy', '처리 정확도': 'accuracy',
+    '처리정확': 'accuracy', '처리 정확': 'accuracy',
+    '업무정확도': 'accuracy', '업무 정확도': 'accuracy',
+    '업무정확': 'accuracy', '업무 정확': 'accuracy',
+    // improvement
     '업무개선도': 'improvement', '업무 개선도': 'improvement',
+    '업무개선': 'improvement', '업무 개선': 'improvement',
+    '사후추적': 'improvement', '사후 추적': 'improvement',
+    // recommendation
     '사용추천도': 'recommendation', '사용 추천도': 'recommendation',
+    '사용추천': 'recommendation', '사용 추천': 'recommendation',
+    // total_score
     '종합점수': 'total_score', '종합 점수': 'total_score',
+    '종합': 'total_score',
+    // opinion
     '서술의견': 'opinion', '서술 의견': 'opinion',
+    '의견': 'opinion',
+    // survey_date
     '설문일자': 'survey_date', '조사일자': 'survey_date', '조사일': 'survey_date', '날짜': 'survey_date', '일자': 'survey_date',
+    // ignored columns (mapped but not required)
+    '순번': '_id', '번호': '_id', 'No': '_id', 'no': '_id',
   };
 
   // Auto-map Korean column names to English if needed
