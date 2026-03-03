@@ -30,7 +30,7 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     return res.status(400).json({ error: 'CSV 파싱 실패', details: e.message });
   }
 
-  const required = ['survey_date', 'branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
+  const required = ['branch', 'contract_type', 'receipt_type', 'task_type', 'apply_method', 'convenience', 'kindness', 'overall_satisfaction', 'social_responsibility', 'speed', 'accuracy', 'improvement', 'recommendation', 'total_score', 'opinion'];
   const columns = Object.keys(rows[0] || {});
   const missing = required.filter(c => !columns.includes(c));
   if (missing.length > 0) {
@@ -40,6 +40,38 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
   if (rows.length === 0) {
     return res.status(400).json({ error: '데이터가 없습니다' });
   }
+
+  // Data quality warnings
+  const warnings = [];
+  const hasDateCol = columns.includes('survey_date');
+  if (!hasDateCol) {
+    warnings.push('survey_date 컬럼 없음: 월별 트렌드 분석이 비활성화됩니다.');
+  } else {
+    const datePattern = /^\d{4}[-/]\d{2}[-/]\d{2}/;
+    const dateCount = rows.filter(r => datePattern.test(r.survey_date || '')).length;
+    if (dateCount === 0) {
+      warnings.push('survey_date가 날짜 형식이 아닙니다(순번 등): 월별 트렌드가 표시되지 않습니다.');
+    } else if (dateCount < rows.length * 0.5) {
+      warnings.push(`survey_date 중 ${rows.length - dateCount}건이 날짜 형식이 아닙니다. 해당 건은 월별 트렌드에서 제외됩니다.`);
+    }
+  }
+
+  const emptyOpinion = rows.filter(r => !r.opinion || r.opinion.trim() === '' || r.opinion.trim() === '-').length;
+  if (emptyOpinion > rows.length * 0.5) {
+    warnings.push(`서술 의견이 ${emptyOpinion}건(${Math.round(emptyOpinion/rows.length*100)}%) 비어있습니다. 감성분석 정확도가 낮아질 수 있습니다.`);
+  }
+
+  const scoreFields = ['convenience','kindness','overall_satisfaction','social_responsibility','speed','accuracy','improvement','recommendation','total_score'];
+  scoreFields.forEach(f => {
+    const invalid = rows.filter(r => {
+      const v = r[f];
+      if (!v || v === '-') return false;
+      return isNaN(parseFloat(v));
+    }).length;
+    if (invalid > 0) {
+      warnings.push(`${f} 컬럼에 숫자가 아닌 값 ${invalid}건 감지. 해당 값은 '-'(미입력)으로 처리됩니다.`);
+    }
+  });
 
   const analysisId = genId();
   store[analysisId] = {
@@ -82,7 +114,8 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
     analysisId,
     totalRows: rows.length,
     status: 'processing',
-    message: '분석이 시작되었습니다'
+    message: '분석이 시작되었습니다',
+    warnings
   });
 });
 

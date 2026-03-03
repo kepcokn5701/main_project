@@ -122,7 +122,10 @@ async function runPipeline(rows, onProgress) {
 async function analyzeSentimentBatch(batch, batchIndex) {
   const system = `You are a Korean customer service sentiment analyzer. You MUST respond with ONLY a valid JSON array. No explanation, no markdown, no code fences.`;
 
-  const comments = batch.map((row, i) => `[${i + 1}] ${row.opinion}`).join('\n');
+  const comments = batch.map((row, i) => {
+    const text = (row.opinion && row.opinion.trim() !== '' && row.opinion.trim() !== '-') ? row.opinion : '(의견 없음)';
+    return `[${i + 1}] ${text}`;
+  }).join('\n');
 
   const user = `Analyze each Korean survey comment. For each, return sentiment ("positive","neutral","negative"), score (0-100, 0=most negative), and 1-3 Korean keyword phrases.
 
@@ -204,22 +207,36 @@ Return JSON: [{"icon":"...","iconColor":"...","title":"...","text":"...","trend"
 
 // --- Helper functions ---
 
+function isDateFormat(val) {
+  return /^\d{4}[-/]\d{2}[-/]\d{2}/.test(val || '');
+}
+
 function stratifiedSample(rows, n) {
-  const byMonth = {};
-  rows.forEach(r => {
-    const m = r.survey_date?.slice(0, 7) || 'unknown';
-    if (!byMonth[m]) byMonth[m] = [];
-    byMonth[m].push(r);
-  });
-  const months = Object.keys(byMonth).sort();
-  const perMonth = Math.ceil(n / months.length);
-  const sampled = [];
-  months.forEach(m => {
-    const pool = byMonth[m];
-    const shuffled = pool.sort(() => Math.random() - 0.5);
-    sampled.push(...shuffled.slice(0, perMonth));
-  });
-  return sampled.slice(0, n);
+  // Check if survey_date exists and contains actual dates
+  const hasDates = rows.some(r => isDateFormat(r.survey_date));
+
+  if (hasDates) {
+    // Stratify by month
+    const byMonth = {};
+    rows.forEach(r => {
+      const m = isDateFormat(r.survey_date) ? r.survey_date.slice(0, 7) : 'unknown';
+      if (!byMonth[m]) byMonth[m] = [];
+      byMonth[m].push(r);
+    });
+    const months = Object.keys(byMonth).sort();
+    const perMonth = Math.ceil(n / months.length);
+    const sampled = [];
+    months.forEach(m => {
+      const pool = byMonth[m];
+      const shuffled = pool.sort(() => Math.random() - 0.5);
+      sampled.push(...shuffled.slice(0, perMonth));
+    });
+    return sampled.slice(0, n);
+  } else {
+    // No dates: random sample
+    const shuffled = [...rows].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, n);
+  }
 }
 
 function parseScore(val) {
@@ -270,6 +287,7 @@ function buildSummary(rows, totalCount) {
 function buildMonthlyTrend(rows) {
   const byMonth = {};
   rows.forEach(r => {
+    if (!isDateFormat(r.survey_date)) return;
     const d = r.survey_date || '';
     const monthNum = parseInt(d.slice(5, 7)) || 0;
     if (monthNum < 1 || monthNum > 12) return;
