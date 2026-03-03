@@ -27,8 +27,39 @@ router.post('/upload', upload.single('csvFile'), (req, res) => {
       const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
+
+      // First try: normal header detection
       rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      // Trim all string values and normalize column names (fix non-breaking spaces)
+      const firstKeys = Object.keys(rows[0] || {});
+      const hasEmptyHeaders = firstKeys.length > 0 && firstKeys.every(k => k === '' || k.startsWith('__EMPTY'));
+
+      if (hasEmptyHeaders) {
+        // Headers are __EMPTY → actual header row is not row 1
+        // Re-parse as raw arrays and find the real header row
+        const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        let headerIdx = -1;
+        const knownHeaders = ['지사', '접수종류', '업무구분', '신청방법', '순번', '번호'];
+        for (let i = 0; i < Math.min(rawRows.length, 15); i++) {
+          const cellValues = rawRows[i].map(v => String(v).replace(/[\u00A0\u3000\uFEFF\u200B]/g, ' ').replace(/\s+/g, ' ').trim());
+          if (cellValues.some(v => knownHeaders.includes(v))) {
+            headerIdx = i;
+            break;
+          }
+        }
+        if (headerIdx >= 0) {
+          const headers = rawRows[headerIdx].map(v => String(v).replace(/[\u00A0\u3000\uFEFF\u200B]/g, ' ').replace(/\s+/g, ' ').trim());
+          const dataRows = rawRows.slice(headerIdx + 1);
+          rows = dataRows
+            .filter(r => r.some(v => v !== ''))  // skip empty rows
+            .map(r => {
+              const obj = {};
+              headers.forEach((h, idx) => { obj[h] = r[idx] !== undefined ? (typeof r[idx] === 'string' ? r[idx].trim() : String(r[idx])) : ''; });
+              return obj;
+            });
+        }
+      }
+
+      // Normalize column names (fix non-breaking spaces)
       rows = rows.map(row => {
         const cleaned = {};
         Object.entries(row).forEach(([key, val]) => {
