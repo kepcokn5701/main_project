@@ -2,6 +2,16 @@ const { callLLM, sleep } = require('./llm');
 
 const BATCH_SIZE = 10;
 const MAX_SAMPLES = 200;
+const POSITIVE_THRESHOLD = 85;  // 긍정 score 85 이상만 'positive'
+
+// 한국어 부정 키워드 (CS 환경)
+const NEGATIVE_KEYWORDS_KR = [
+  "불만","불편","민원","항의","화남","짜증","느림","느려","오류","오작동",
+  "불량","고장","재방문","지연","오래","기다림","실망","최악","별로",
+  "안됨","문제","취소","환불","비싸","과금","폭탄",
+  "불친절","무시","황당","답답","부당","잘못","실수","불합리",
+  "정전","단전","누전","위험","사고","불쾌","무성의","방치",
+];
 
 async function runPipeline(rows, onProgress) {
   const emit = (phase, percent, message, extra = {}) => {
@@ -39,12 +49,14 @@ async function runPipeline(rows, onProgress) {
       sentimentResults.push(...results);
     } catch (e) {
       console.error(`Batch ${bi} failed:`, e.message);
-      // Fallback: assign neutral sentiment
+      // Fallback: 부정 키워드 체크 후 rating 기반 분류
       batch.forEach((row, idx) => {
+        const text = (row.opinion || '').toString();
+        const hasNeg = NEGATIVE_KEYWORDS_KR.some(kw => text.includes(kw));
         sentimentResults.push({
           id: bi * BATCH_SIZE + idx + 1,
-          sentiment: guessSentimentFromRating(row.total_score),
-          score: ratingToScore(row.total_score),
+          sentiment: hasNeg ? 'negative' : guessSentimentFromRating(row.total_score),
+          score: hasNeg ? Math.min(30, ratingToScore(row.total_score)) : ratingToScore(row.total_score),
           keywords: []
         });
       });
@@ -137,6 +149,30 @@ Respond with ONLY this JSON format:
 
   const result = await callLLM(system, user, 200 * batch.length);
   if (!Array.isArray(result)) throw new Error('Expected array from LLM');
+
+  // ── 후처리: 부정 키워드 오버라이드 + 임계값 + 키워드 검증 ──
+  result.forEach((r, i) => {
+    const text = (batch[i]?.opinion || '').toString();
+
+    // 1) 부정 키워드 포함 시 강제 'negative'
+    if (NEGATIVE_KEYWORDS_KR.some(kw => text.includes(kw)) && r.sentiment !== 'negative') {
+      r.sentiment = 'negative';
+      r.score = Math.min(r.score, 30);
+    }
+
+    // 2) 긍정 판정 임계값: score 85 미만이면 neutral로 하향
+    if (r.sentiment === 'positive' && r.score < POSITIVE_THRESHOLD) {
+      r.sentiment = 'neutral';
+    }
+
+    // 3) 키워드 검증: 원문에 실제로 존재하는 단어만 유지
+    if (r.keywords && Array.isArray(r.keywords)) {
+      r.keywords = r.keywords.filter(kw =>
+        typeof kw === 'string' && kw.length >= 2 && text.includes(kw)
+      );
+    }
+  });
+
   return result;
 }
 
