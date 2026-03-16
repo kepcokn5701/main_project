@@ -210,17 +210,123 @@ const PROJECTS = [
 ];
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// DATA — 추후 개발 예정 과제
+// DATA — 추후 개발 예정 과제 (상세 포함)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const FUTURE_PROJECTS = [
-  {title:'VOC 문의/답변 자동화', subtitle:'LLM 기반 표준답변 추천', category:'고객서비스', catColor:'violet', icon:'message-square', gradFrom:'#6d28d9', gradTo:'#7c3aed'},
-  {title:'검침값 예측 (LP 데이터)', subtitle:'LSTM 기반 전력사용량 예측', category:'검침/요금', catColor:'emerald', icon:'activity', gradFrom:'#065f46', gradTo:'#059669'},
-
-  {title:'과소계량 적출 AI', subtitle:'Isolation Forest 이상탐지', category:'계량/검침', catColor:'red', icon:'alert-triangle', gradFrom:'#991b1b', gradTo:'#dc2626'},
-  {title:'영상 분석 오결선 판별', subtitle:'YOLOv8 + OpenCV 실시간 검사', category:'현장검사', catColor:'yellow', icon:'zap', gradFrom:'#854d0e', gradTo:'#ca8a04'},
-  {title:'드론 영상 송전설비 판독', subtitle:'YOLOv8 기반 철탑 부품 이상 탐지', category:'설비점검', catColor:'cyan', icon:'airplay', gradFrom:'#164e63', gradTo:'#0891b2'},
-  {title:'보호계전기 정정 무결성 검증', subtitle:'AI 기반 휴먼에러 Zero 시스템', category:'계통보호', catColor:'purple', icon:'shield-check', gradFrom:'#4c1d95', gradTo:'#7c3aed'},
+{
+  id:101, sim:'voc', category:'고객서비스', catColor:'violet', icon:'message-square',
+  gradFrom:'#6d28d9', gradTo:'#7c3aed',
+  title:'VOC 문의/답변 자동화', subtitle:'LLM 기반 표준답변 추천 시스템',
+  problem:'유사 반복 문의 多, 담당자별 답변 품질 편차 크고 과거 사례 검색에 시간 소요.',
+  solution:'RAG 방식으로 과거 답변 DB 구축 후 유사 문의 자동 분류 및 초안 답변 즉시 추천.',
+  difficulty:3, timeline:'2~4개월', mvp:'8주', cost:'월 ~$20 (API 비용)',
+  stack:[{n:'Python',t:'lang'},{n:'LangChain',t:'lib'},{n:'FastAPI',t:'back'},{n:'ChromaDB',t:'db'},{n:'React',t:'front'},{n:'OpenAI API',t:'ai'}],
+  ai:[{n:'GPT-4o',d:'답변 생성 및 분류',free:false,src:'OpenAI API'},{n:'text-embedding-3',d:'문서 임베딩 (RAG)',free:false,src:'OpenAI API'},{n:'ChromaDB',d:'벡터 유사도 검색',free:true,src:'오픈소스'}],
+  infra:[{icon:'globe',lbl:'프론트엔드',val:'Vercel (무료)',note:'React + Tailwind'},{icon:'server',lbl:'백엔드',val:'Render 무료 티어',note:'LangChain FastAPI'},{icon:'database',lbl:'벡터 DB',val:'ChromaDB (로컬)',note:'오픈소스, 비용 없음'},{icon:'cpu',lbl:'AI',val:'OpenAI GPT-4o',note:'월 ~$20 (소량)'}],
+  workflow:[
+    {i:'database',l:'과거 VOC 수집',d:'기존 문의/답변 엑셀 데이터 크롤링 & 정제'},
+    {i:'code',l:'벡터 임베딩',d:'ChromaDB에 문의 내용 임베딩 저장 (RAG 구축)'},
+    {i:'zap',l:'신규 문의 입력',d:'접수된 문의를 AI가 유형별 자동 분류'},
+    {i:'search',l:'유사 답변 검색',d:'벡터 유사도로 과거 Best 답변 매칭'},
+    {i:'send',l:'답변 초안 생성',d:'GPT-4o가 표준 답변 초안 생성 → 담당자 검토'},
+  ],
+},
+{
+  id:102, sim:'meter', category:'검침/요금', catColor:'emerald', icon:'activity',
+  gradFrom:'#065f46', gradTo:'#059669',
+  title:'검침값 예측 (LP 데이터)', subtitle:'LSTM 기반 전력사용량 예측',
+  problem:'계량기 고장/미취득 시 수작업 요금 계산(협정). 방문검침 비용 연간 약 140억 원.',
+  solution:'고객별 LP(Load Profile) 데이터 학습 → 미취득 검침값 자동 예측 → 요금 자동 산정.',
+  difficulty:3, timeline:'3~4개월', mvp:'10주', cost:'₩0 (서버 비용만)',
+  stack:[{n:'Python',t:'lang'},{n:'PyTorch/LSTM',t:'ai'},{n:'Prophet',t:'ai'},{n:'FastAPI',t:'back'},{n:'Streamlit',t:'front'},{n:'PostgreSQL',t:'db'}],
+  ai:[{n:'LSTM',d:'시계열 사용량 예측',free:true,src:'PyTorch'},{n:'Prophet',d:'계절성 분해 예측',free:true,src:'Meta/오픈소스'},{n:'Isolation Forest',d:'이상 검침값 탐지',free:true,src:'scikit-learn'}],
+  infra:[{icon:'server',lbl:'모델 서버',val:'Railway (무료)',note:'FastAPI + LSTM 모델'},{icon:'database',lbl:'LP 데이터',val:'내부 ERP API 연동',note:'AMI 데이터 수집'},{icon:'globe',lbl:'대시보드',val:'Streamlit Cloud',note:'무료 호스팅'},{icon:'cpu',lbl:'학습 환경',val:'Google Colab (무료)',note:'GPU 학습 가능'}],
+  workflow:[
+    {i:'download',l:'LP 데이터 수집',d:'AMI/원격검침 시스템에서 15분 단위 데이터 수집'},
+    {i:'layers',l:'특성 추출',d:'계절성, 요일, 기온 등 외부 변수 결합'},
+    {i:'brain',l:'LSTM 학습',d:'고객별 사용 패턴 시계열 모델 학습'},
+    {i:'trending-up',l:'예측 실행',d:'결측 기간 사용량 예측값 생성 (신뢰구간 포함)'},
+    {i:'file-text',l:'요금 자동 산정',d:'예측값 기반 자동 청구 → ERP 연동'},
+  ],
+},
+{
+  id:103, sim:'anomaly', category:'계량/검침', catColor:'red', icon:'alert-triangle',
+  gradFrom:'#991b1b', gradTo:'#dc2626',
+  title:'과소계량 적출 AI', subtitle:'Isolation Forest 이상탐지 시스템',
+  problem:'계량기 불량/서지로 인한 과소계량을 수작업 판별 불가 → 전력회사 손실 발생.',
+  solution:'원격검침 이벤트 + 사용량 데이터를 Isolation Forest로 분석 → 의심 개소 자동 적출.',
+  difficulty:3, timeline:'2~3개월', mvp:'8주', cost:'₩0',
+  stack:[{n:'Python',t:'lang'},{n:'scikit-learn',t:'ai'},{n:'Pandas',t:'lib'},{n:'PostgreSQL',t:'db'},{n:'FastAPI',t:'back'},{n:'Streamlit',t:'front'}],
+  ai:[{n:'Isolation Forest',d:'이상치 탐지 알고리즘',free:true,src:'scikit-learn'},{n:'DBSCAN',d:'사용 패턴 클러스터링',free:true,src:'scikit-learn'},{n:'Z-score',d:'통계적 이상값 검출',free:true,src:'scipy'}],
+  infra:[{icon:'database',lbl:'데이터 소스',val:'AMI 원격검침 시스템',note:'이벤트 로그 + 사용량'},{icon:'server',lbl:'분석 서버',val:'Railway (무료)',note:'배치 분석 스케줄러'},{icon:'bell',lbl:'알림',val:'이메일/SMS 자동 발송',note:'의심 개소 즉시 통보'},{icon:'globe',lbl:'대시보드',val:'Streamlit (무료)',note:'지도 기반 시각화'}],
+  workflow:[
+    {i:'database',l:'데이터 수집',d:'원격검침 이벤트 + 사용량 데이터 통합'},
+    {i:'layers',l:'특성 엔지니어링',d:'이벤트 발생 전후 패턴, 이웃 고객 비교 특성 생성'},
+    {i:'cpu',l:'이상탐지 모델',d:'Isolation Forest로 정상 패턴에서 벗어난 개소 탐지'},
+    {i:'alert-circle',l:'의심 개소 분류',d:'점수 기반 상·중·하 위험 등급 분류'},
+    {i:'map-pin',l:'현장 점검 목록',d:'GIS 지도 기반 점검 우선순위 리스트 자동 생성'},
+  ],
+},
+{
+  id:104, sim:'wiring', category:'현장검사', catColor:'yellow', icon:'zap',
+  gradFrom:'#854d0e', gradTo:'#ca8a04',
+  title:'영상 분석 오결선 판별', subtitle:'YOLOv8 + OpenCV 실시간 검사',
+  problem:'계량기 결선 작업자 실수 → 오결선 → 요금 과소/과다 부과 민원 발생.',
+  solution:'모바일 카메라로 결선 영상 촬영 → YOLOv8로 배선 순서/단자 상태 실시간 판별 + 음성 안내.',
+  difficulty:4, timeline:'3~5개월', mvp:'12주', cost:'₩0 (오픈소스)',
+  stack:[{n:'Python',t:'lang'},{n:'YOLOv8',t:'ai'},{n:'OpenCV',t:'lib'},{n:'React Native',t:'front'},{n:'FastAPI',t:'back'},{n:'PyTorch',t:'ai'}],
+  ai:[{n:'YOLOv8',d:'배선 색상/순서 객체 탐지',free:true,src:'Ultralytics'},{n:'OpenCV',d:'저조도/반사광 보정',free:true,src:'오픈소스'},{n:'Custom CNN',d:'단자 체결 상태 분류',free:true,src:'PyTorch'}],
+  infra:[{icon:'smartphone',lbl:'모바일 앱',val:'React Native (무료)',note:'iOS/Android 동시 지원'},{icon:'server',lbl:'추론 서버',val:'Render 무료 티어',note:'YOLOv8 API 서버'},{icon:'cpu',lbl:'엣지 추론',val:'TFLite / ONNX',note:'오프라인 동작 가능'},{icon:'volume-2',lbl:'음성 안내',val:'TTS (Web Speech API)',note:'정상/오류 즉시 통보'}],
+  workflow:[
+    {i:'camera',l:'영상 촬영',d:'작업자 스마트폰 카메라로 결선부 촬영'},
+    {i:'sun',l:'영상 전처리',d:'OpenCV로 저조도 보정, 반사광 제거'},
+    {i:'crosshair',l:'객체 탐지',d:'YOLOv8으로 황/적/갈/백/흑/청/녹 배선 탐지'},
+    {i:'check-square',l:'순서 검증',d:'탐지된 배선 순서와 표준 결선 규격 비교'},
+    {i:'volume-2',l:'결과 통보',d:'음성 "정상입니다" / "2번 단자 오결선 확인" 안내'},
+  ],
+},
+{
+  id:105, sim:'drone', category:'설비점검', catColor:'cyan', icon:'airplay',
+  gradFrom:'#164e63', gradTo:'#0891b2',
+  title:'드론 영상 송전설비 판독', subtitle:'YOLOv8 기반 철탑 부품 이상 탐지',
+  problem:'철탑 1기당 15분 드론 영상을 담당자가 수동 검토. 월 20시간+ 소요.',
+  solution:'드론 영상 자동 분할 → AI가 애자 크랙, 금구류 불량, 수목 이격거리 자동 판별 → 엑셀 생성.',
+  difficulty:4, timeline:'4~6개월', mvp:'14주', cost:'₩0 (GPU 서버 제외)',
+  stack:[{n:'Python',t:'lang'},{n:'YOLOv8/PyTorch',t:'ai'},{n:'OpenCV',t:'lib'},{n:'FastAPI',t:'back'},{n:'React',t:'front'},{n:'FFmpeg',t:'lib'}],
+  ai:[{n:'YOLOv8',d:'애자/금구류 객체 탐지',free:true,src:'Ultralytics'},{n:'ResNet50',d:'부품 상태 분류',free:true,src:'PyTorch Hub'},{n:'SSIM',d:'이미지 품질 필터링',free:true,src:'scikit-image'}],
+  infra:[{icon:'server',lbl:'GPU 서버',val:'RunPod (GPU 저렴)',note:'배치 처리 $0.2/hr'},{icon:'hard-drive',lbl:'영상 저장',val:'Cloudflare R2',note:'무료 10GB/월'},{icon:'cpu',lbl:'모델 학습',val:'Google Colab Pro',note:'GPU 학습 환경'},{icon:'globe',lbl:'결과 뷰어',val:'React (Vercel)',note:'영상 + 탐지 결과'}],
+  workflow:[
+    {i:'video',l:'영상 분할',d:'FFmpeg으로 영상→프레임 추출, 블러 사진 자동 제거'},
+    {i:'filter',l:'품질 필터링',d:'SSIM으로 저화질/중복 프레임 제거 (70% 감소)'},
+    {i:'crosshair',l:'AI 객체 탐지',d:'YOLOv8로 애자, 금구류, 수목 위치 탐지'},
+    {i:'alert-circle',l:'이상 분류',d:'정상/의심/불량 3단계 상태 자동 분류'},
+    {i:'file-text',l:'리포트 생성',d:'철탑별 이상 목록 엑셀 + 증거 이미지 자동 묶음'},
+  ],
+},
+{
+  id:106, sim:'relay', category:'계통보호', catColor:'purple', icon:'shield-check',
+  gradFrom:'#4c1d95', gradTo:'#7c3aed',
+  title:'보호계전기 정정 무결성 검증', subtitle:'AI 기반 휴먼에러 Zero 시스템',
+  problem:'PSS/E 결과값 엑셀 수기 입력 시 오타 등 휴먼에러 → 계통 사고 위험.',
+  solution:'과거 정상 정정 데이터 학습 → 신규 정정값 이상 여부 자동 판별 + 보호협조 시뮬레이션.',
+  difficulty:5, timeline:'6~9개월', mvp:'16주', cost:'₩0 (폐쇄망)',
+  stack:[{n:'Python',t:'lang'},{n:'scikit-learn',t:'ai'},{n:'FastAPI',t:'back'},{n:'React',t:'front'},{n:'PostgreSQL',t:'db'},{n:'PSS/E API',t:'lib'}],
+  ai:[{n:'Isolation Forest',d:'정정값 이상탐지',free:true,src:'scikit-learn'},{n:'Rule Engine',d:'보호협조 규칙 검증',free:true,src:'커스텀'},{n:'XGBoost',d:'오류 패턴 분류',free:true,src:'오픈소스'}],
+  infra:[{icon:'server',lbl:'온프레미스 서버',val:'사내 폐쇄망 서버',note:'데이터 외부 유출 차단'},{icon:'database',lbl:'정정 이력 DB',val:'내부 PostgreSQL',note:'과거 정정 데이터 학습'},{icon:'shield',lbl:'보안',val:'내부망 전용',note:'VPN 없이 접근 불가'},{icon:'monitor',lbl:'시각화',val:'React (내부 배포)',note:'협조 곡선 시각화'}],
+  workflow:[
+    {i:'database',l:'정정 데이터 수집',d:'과거 정상 정정값 DB 구축 (학습 데이터)'},
+    {i:'cpu',l:'모델 학습',d:'정상 패턴 학습 → Isolation Forest 모델 생성'},
+    {i:'file-input',l:'신규 정정 입력',d:'PSS/E 계산 결과 → 시스템 자동 입력'},
+    {i:'search',l:'이상 탐지',d:'학습 모델로 이상값 탐지 + 보호협조 검증'},
+    {i:'shield-check',l:'검증 리포트',d:'정상/경고/오류 3단계 결과 + 수정 권고안 출력'},
+  ],
+},
 ];
+
+// 전체 프로젝트 검색 (메인 + 추후)
+function findProject(id) {
+  return PROJECTS.find(x => x.id === id) || FUTURE_PROJECTS.find(x => x.id === id);
+}
 
 const STACK_TAG_MAP = {lang:'tag-lang', lib:'tag-lib', ai:'tag-ai', front:'tag-front', back:'tag-back', rpa:'tag-rpa', db:'tag-db'};
 const DIFFICULTY_LABELS = ['', '★ 매우 쉬움', '★★ 쉬움', '★★★ 보통', '★★★★ 어려움', '★★★★★ 전문가'];
@@ -321,7 +427,7 @@ function renderFuture() {
   document.getElementById('future-count').textContent = `(${FUTURE_PROJECTS.length}개)`;
   const grid = document.getElementById('future-grid');
   grid.innerHTML = FUTURE_PROJECTS.map((p, idx) => `
-    <div class="future-card" style="animation:fadeInUp .4s ease-out ${idx*50}ms both;">
+    <div class="future-card" style="animation:fadeInUp .4s ease-out ${idx*50}ms both;cursor:pointer;" onclick="openModal(${p.id})">
       <div class="flex items-start justify-between mb-3">
         <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
              style="background:linear-gradient(135deg,${p.gradFrom},${p.gradTo});opacity:.5;">
@@ -331,6 +437,9 @@ function renderFuture() {
       </div>
       <div class="font-bold text-slate-300 text-sm">${p.title}</div>
       <div class="text-xs text-slate-500 mt-1">${p.subtitle}</div>
+      <div class="flex items-center gap-1 text-xs mt-2" style="color:${textColors[p.catColor]};opacity:.7;">
+        상세 보기 <i data-lucide="arrow-right" style="width:10px;height:10px;"></i>
+      </div>
     </div>
   `).join('');
 }
@@ -348,7 +457,7 @@ function toggleFuture() {
 // MODAL
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function openModal(id) {
-  const p = PROJECTS.find(x => x.id === id);
+  const p = findProject(id);
   if (!p || p.status === 'planned') return;
   currentProjectId = id;
   if (!activeTab[id]) activeTab[id] = 0;
@@ -404,7 +513,7 @@ function renderModalTabs(p) {
 
 function switchTab(id, idx) {
   activeTab[id] = idx;
-  const p = PROJECTS.find(x=>x.id===id);
+  const p = findProject(id);
   renderModalTabs(p);
   renderModalLeft(p, idx);
   lucide.createIcons();
@@ -521,7 +630,7 @@ function renderModalRight(p) {
 function restartSim() {
   if (!currentProjectId) return;
   clearSimTimers();
-  const p = PROJECTS.find(x=>x.id===currentProjectId);
+  const p = findProject(currentProjectId);
   const el = document.getElementById('sim-area');
   if (p && el) startSim(p.sim, el);
 }
@@ -653,7 +762,354 @@ ocr: (el) => {
   });
 },
 
+// ──── VOC Auto ────────────────────────────────────────────
+voc: (el) => {
+  const convos = [
+    {q:'전기요금이 지난달보다 갑자기 2배가 됐어요. 이유가 뭔가요?', cat:'요금 문의 > 급등', a:'안녕하세요, 고객센터입니다. 전기요금 급등은 주로 ①누진구간 진입, ②계절요금 변동, ③사용 기기 추가로 발생합니다. 검침기간(___월 ___일~___일) 사용량은 총 ___kWh로, 이전 대비 ___% 증가하였습니다. 자세한 내역은 한전 앱에서 확인하실 수 있습니다.'},
+    {q:'정전이 발생했는데 언제 복구되나요?', cat:'정전 문의 > 복구일정', a:'정전 관련 불편을 드려 죄송합니다. 해당 지역(___구 ___동) 정전은 현재 복구 작업 중이며, 예상 복구 시간은 ___시 ___분입니다. 긴급복구팀이 현장에 출동하였습니다. 추가 문의는 123(한전 콜센터)로 연락해 주세요.'},
+  ];
+  let idx = 0;
+
+  function showConvo(c) {
+    el.innerHTML = `
+      <div class="space-y-3 p-2">
+        <div class="flex items-center gap-2 text-xs mb-3">
+          <div class="w-2 h-2 rounded-full bg-green-400" style="animation:blink 1.5s infinite;"></div>
+          <span class="text-slate-400">AI 답변 시스템 실시간 처리 중</span>
+        </div>
+        <div class="p-2 rounded-xl" style="background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.1);">
+          <div class="text-xs text-sky-400 mb-1">🏷 자동 분류: <span class="font-bold">${c.cat}</span></div>
+        </div>
+        <div class="flex justify-end">
+          <div class="chat-bubble-user p-3 max-w-xs">
+            <div class="text-xs text-slate-300 leading-relaxed">${c.q}</div>
+            <div class="text-xs text-slate-500 mt-1 text-right">고객</div>
+          </div>
+        </div>
+        <div class="flex justify-start">
+          <div id="ai-bubble" class="chat-bubble-ai p-3 max-w-xs">
+            <div class="flex gap-1 items-center py-1">
+              <div class="dot1"></div><div class="dot2"></div><div class="dot3"></div>
+            </div>
+          </div>
+        </div>
+        <div class="p-2 rounded-xl text-xs" style="background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.15);">
+          <span class="text-violet-400 font-semibold">📚 RAG 검색:</span> <span class="text-slate-400">유사 과거 답변 3건 발견 → 최적 답변 조합 중...</span>
+        </div>
+      </div>`;
+
+    const t = setTimeout(() => {
+      const bubble = document.getElementById('ai-bubble');
+      if (!bubble) return;
+      bubble.innerHTML = `<div class="text-xs text-slate-300 leading-relaxed" style="animation:fadeIn .5s ease-out;">${c.a}</div><div class="text-xs text-slate-500 mt-1">AI (검토 후 발송)</div>`;
+    }, 2200);
+    simTimers.push(t);
+
+    const t2 = setTimeout(() => { idx=(idx+1)%convos.length; showConvo(convos[idx]); }, 6000);
+    simTimers.push(t2);
+  }
+  showConvo(convos[0]);
+},
+
+// ──── Meter Prediction ────────────────────────────────────
+meter: (el) => {
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const actual = [320,290,310,280,350,410,480,490,370,300,null,null];
+  const predicted = [null,null,null,null,null,null,null,null,null,null,330,310];
+  const maxV = 550;
+  const W = 420, H = 180, PAD = 30;
+  const xStep = (W - PAD*2) / 11;
+
+  function pX(i) { return PAD + i * xStep; }
+  function pY(v) { return H - PAD - (v/maxV)*(H-PAD*2); }
+
+  const actualPts = actual.map((v,i) => v!==null ? `${pX(i)},${pY(v)}` : null).filter(Boolean);
+
+  el.innerHTML = `
+    <div class="p-2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="text-xs font-bold text-slate-200">월별 전력사용량 예측 (고객 #A-00421)</div>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1"><span style="width:12px;height:2px;background:#38bdf8;display:inline-block;"></span> 실측</span>
+          <span class="flex items-center gap-1"><span style="width:12px;height:2px;background:#f97316;display:inline-block;border-top:2px dashed #f97316;"></span> 예측</span>
+        </div>
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:180px;">
+        ${[0,.25,.5,.75,1].map(f=>`<line x1="${PAD}" y1="${pY(f*maxV)}" x2="${W-PAD}" y2="${pY(f*maxV)}" stroke="#1e293b" stroke-width="1"/>`).join('')}
+        <polyline points="${actualPts.join(' ')}" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <line x1="${pX(9)}" y1="${pY(actual[9])}" x2="${pX(10)}" y2="${pY(predicted[10])}" stroke="#f97316" stroke-width="2" stroke-dasharray="4,3"/>
+        <line x1="${pX(10)}" y1="${pY(predicted[10])}" x2="${pX(11)}" y2="${pY(predicted[11])}" stroke="#f97316" stroke-width="2.5" stroke-dasharray="5,3"/>
+        <polygon points="${pX(10)},${pY(predicted[10]*1.08)} ${pX(11)},${pY(predicted[11]*1.08)} ${pX(11)},${pY(predicted[11]*.92)} ${pX(10)},${pY(predicted[10]*.92)}" fill="rgba(249,115,22,.15)"/>
+        ${actual.map((v,i)=>v!==null?`<circle cx="${pX(i)}" cy="${pY(v)}" r="3.5" fill="#38bdf8" stroke="#0f172a" stroke-width="1.5"/>`:'').join('')}
+        ${predicted.map((v,i)=>v!==null?`<circle cx="${pX(i)}" cy="${pY(v)}" r="4" fill="#f97316" stroke="#0f172a" stroke-width="1.5"/>`:'').join('')}
+        ${months.map((m,i)=>`<text x="${pX(i)}" y="${H-5}" text-anchor="middle" fill="#475569" font-size="9">${m}</text>`).join('')}
+        <rect x="${pX(10)-4}" y="${PAD}" width="${xStep+8}" height="${H-PAD*2}" fill="rgba(249,115,22,.05)" rx="3"/>
+        <text x="${pX(10)+xStep/2}" y="${PAD+10}" text-anchor="middle" fill="#f97316" font-size="8">예측 구간</text>
+      </svg>
+      <div class="grid grid-cols-3 gap-2 mt-3">
+        <div class="p-2 rounded-lg text-center" style="background:rgba(15,23,42,.8);border:1px solid rgba(56,189,248,.15);">
+          <div class="text-sm font-bold text-sky-400">97.3%</div>
+          <div class="text-xs text-slate-400">예측 정확도</div>
+        </div>
+        <div class="p-2 rounded-lg text-center" style="background:rgba(15,23,42,.8);border:1px solid rgba(249,115,22,.15);">
+          <div class="text-sm font-bold text-orange-400">330 kWh</div>
+          <div class="text-xs text-slate-400">11월 예측값</div>
+        </div>
+        <div class="p-2 rounded-lg text-center" style="background:rgba(15,23,42,.8);border:1px solid rgba(34,197,94,.15);">
+          <div class="text-sm font-bold text-green-400">₩54,200</div>
+          <div class="text-xs text-slate-400">자동 요금 산정</div>
+        </div>
+      </div>
+    </div>`;
+},
+
+// ──── Anomaly Detection ───────────────────────────────────
+anomaly: (el) => {
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const usage = [420,408,415,190,412,398,425,411,88,420,415,408];
+  const normal = [400,395,410,405,415,390,420,408,412,418,412,405];
+  const isAnomaly = (v,n) => Math.abs(v-n) > 80;
+  const maxV = 500;
+  const H = 160, W = 400, PAD = 28;
+  const bW = (W-PAD*2)/12 - 4;
+
+  el.innerHTML = `
+    <div class="p-2">
+      <div class="text-xs font-bold text-slate-200 mb-3">월별 사용량 이상탐지 (계기번호 M-20291)</div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:160px;">
+        ${months.map((m,i)=>{
+          const x = PAD + i*(bW+4);
+          const anomaly = isAnomaly(usage[i], normal[i]);
+          const color = anomaly ? '#ef4444' : '#38bdf8';
+          const normH = (normal[i]/maxV)*(H-PAD*2);
+          const usageH = (usage[i]/maxV)*(H-PAD*2);
+          return `
+            <rect x="${x}" y="${H-PAD-normH}" width="${bW}" height="${normH}" fill="rgba(56,189,248,.15)" rx="2"/>
+            <rect x="${x}" y="${H-PAD-usageH}" width="${bW}" height="${usageH}" fill="${color}" opacity="${anomaly?1:.6}" rx="2"/>
+            <text x="${x+bW/2}" y="${H-4}" text-anchor="middle" fill="#475569" font-size="8">${m}</text>
+            ${anomaly?`<text x="${x+bW/2}" y="${H-PAD-usageH-4}" text-anchor="middle" fill="#ef4444" font-size="10" font-weight="bold">!</text>`:''}
+          `;
+        }).join('')}
+        <line x1="${PAD}" y1="${H-PAD}" x2="${W-PAD}" y2="${H-PAD}" stroke="#334155" stroke-width="1"/>
+      </svg>
+      <div class="flex gap-2 text-xs mt-2 mb-3">
+        <span class="flex items-center gap-1"><span style="width:10px;height:10px;background:#38bdf8;opacity:.6;border-radius:2px;display:inline-block;"></span> 정상</span>
+        <span class="flex items-center gap-1"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px;display:inline-block;"></span> 이상(과소계량)</span>
+        <span class="flex items-center gap-1"><span style="width:10px;height:10px;background:rgba(56,189,248,.15);border-radius:2px;display:inline-block;"></span> 평균패턴</span>
+      </div>
+      <div class="space-y-2">
+        <div class="p-3 rounded-xl" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);animation:fadeIn .5s ease-out 0.5s both;">
+          <div class="text-xs font-bold text-red-400 mb-1">🚨 이상 탐지: 2건 자동 적출</div>
+          <div class="text-xs text-slate-300">4월: 190kWh (평균 405kWh 대비 <span class="text-red-400 font-bold">53% 감소</span>) — 즉시 점검 권고</div>
+          <div class="text-xs text-slate-300 mt-1">9월: 88kWh (평균 412kWh 대비 <span class="text-red-400 font-bold">79% 감소</span>) — 우선 점검 권고</div>
+        </div>
+        <div class="p-2 rounded-xl text-xs" style="background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.1);">
+          <span class="text-sky-400 font-semibold">Isolation Forest 점수:</span>
+          <span class="text-slate-300"> 4월 -0.82 / 9월 -0.91 (임계값: -0.5)</span>
+        </div>
+      </div>
+    </div>`;
+},
+
+// ──── Wiring Check ───────────────────────────────────────
+wiring: (el) => {
+  const wires = [
+    {color:'황색(Yellow)',phase:'A상',expected:'1번 단자',current:'1번 단자',ok:true},
+    {color:'적색(Red)',phase:'B상',expected:'2번 단자',current:'2번 단자',ok:true},
+    {color:'갈색(Brown)',phase:'C상',expected:'3번 단자',current:'4번 단자',ok:false},
+    {color:'백색(White)',phase:'N상',expected:'N 단자',current:'N 단자',ok:true},
+    {color:'흑색(Black)',phase:'A상(전류)',expected:'5번 단자',current:'5번 단자',ok:true},
+    {color:'청색(Blue)',phase:'B상(전류)',expected:'6번 단자',current:'6번 단자',ok:true},
+    {color:'녹색(Green)',phase:'접지',expected:'접지 단자',current:'접지 단자',ok:true},
+  ];
+  let checked = 0;
+
+  function render() {
+    el.innerHTML = `
+      <div class="p-2">
+        <div class="flex items-center gap-2 mb-3 text-xs">
+          <span class="spinner"></span>
+          <span class="text-slate-300">YOLOv8 배선 분석 중... (${checked}/${wires.length})</span>
+        </div>
+        <div class="rounded-xl overflow-hidden mb-3" style="border:1px solid rgba(148,163,184,.1);">
+          <div class="grid grid-cols-4 gap-0 text-xs font-semibold text-slate-400 p-2" style="background:rgba(15,23,42,.8);">
+            <div>배선</div><div>단자</div><div>탐지</div><div>상태</div>
+          </div>
+          ${wires.map((w,i)=>`
+            <div class="grid grid-cols-4 gap-0 text-xs p-2 items-center" style="background:${i%2?'rgba(30,41,59,.3)':'rgba(15,23,42,.3)'};${i===checked-1&&!w.ok?'background:rgba(239,68,68,.08);border-left:3px solid #ef4444;':''}">
+              <div class="flex items-center gap-1.5">
+                <div style="width:10px;height:10px;border-radius:50%;border:2px solid;border-color:${getWireColor(w.color)};background:${getWireBg(w.color)};"></div>
+                <span class="text-slate-300">${w.color.split('(')[0]}</span>
+              </div>
+              <div class="text-slate-300">${w.expected}</div>
+              <div class="${i<checked?'':'text-slate-600'}">${i<checked?w.current:'—'}</div>
+              <div>${i<checked?(w.ok?'<span class="text-green-400">✓ 정상</span>':'<span class="text-red-400 font-bold">✗ 오류</span>'):'<span class="text-slate-600">—</span>'}</div>
+            </div>`).join('')}
+        </div>
+        ${checked >= wires.length ? `
+          <div class="p-3 rounded-xl" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.35);">
+            <div class="text-xs font-bold text-red-400 text-base mb-1">🚨 오결선 감지!</div>
+            <div class="text-xs text-slate-200">갈색 배선 → 4번 단자 (3번이어야 함)</div>
+            <div class="text-xs text-red-300 mt-1 font-medium">📢 음성 안내: "갈색 배선 오결선 확인. 3번 단자로 재연결하십시오."</div>
+          </div>` : ''}
+      </div>`;
+  }
+
+  render();
+  const iv = setInterval(() => {
+    if (checked < wires.length) { checked++; render(); }
+    else clearInterval(iv);
+  }, 900);
+  simTimers.push(iv);
+},
+
+// ──── Drone Detection ────────────────────────────────────
+drone: (el) => {
+  const detections = [
+    {x:15,y:12,w:22,h:18,label:'애자 크랙',conf:94,color:'#ef4444',status:'불량',delay:600},
+    {x:55,y:35,w:18,h:16,label:'금구류',conf:98,color:'#22c55e',status:'정상',delay:1200},
+    {x:70,y:10,w:20,h:14,label:'수목 이격',conf:87,color:'#f59e0b',status:'주의',delay:1800},
+    {x:30,y:55,w:16,h:14,label:'애자',conf:96,color:'#22c55e',status:'정상',delay:2400},
+  ];
+
+  el.innerHTML = `
+    <div class="p-2">
+      <div class="text-xs font-bold text-slate-200 mb-2">📡 드론 영상 AI 분석 — 철탑 #T-402</div>
+      <div class="relative rounded-xl overflow-hidden mb-3" style="background:linear-gradient(135deg,#0a1628,#0d2240);border:1px solid rgba(56,189,248,.2);height:220px;">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);opacity:.15;">
+          <svg width="120" height="180" viewBox="0 0 120 180">
+            <line x1="60" y1="10" x2="60" y2="170" stroke="#94a3b8" stroke-width="3"/>
+            <line x1="10" y1="60" x2="110" y2="60" stroke="#94a3b8" stroke-width="2"/>
+            <line x1="20" y1="100" x2="100" y2="100" stroke="#94a3b8" stroke-width="2"/>
+            <line x1="30" y1="140" x2="90" y2="140" stroke="#94a3b8" stroke-width="2"/>
+            <line x1="60" y1="10" x2="10" y2="60" stroke="#94a3b8" stroke-width="1"/>
+            <line x1="60" y1="10" x2="110" y2="60" stroke="#94a3b8" stroke-width="1"/>
+          </svg>
+        </div>
+        ${[0,1,2,3,4].map(i=>`<div style="position:absolute;left:0;right:0;top:${i*20}%;height:1px;background:rgba(56,189,248,.06);"></div>`).join('')}
+        ${[0,1,2,3,4].map(i=>`<div style="position:absolute;top:0;bottom:0;left:${i*20}%;width:1px;background:rgba(56,189,248,.06);"></div>`).join('')}
+        <div id="det-boxes"></div>
+        <div style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#38bdf8,transparent);animation:scanLine 3s linear infinite;top:0;"></div>
+        <div class="absolute top-2 left-2 text-xs text-sky-400 font-mono" style="background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;">REC ● LIVE</div>
+        <div class="absolute top-2 right-2 text-xs text-slate-300 font-mono" style="background:rgba(0,0,0,.5);padding:2px 6px;border-radius:4px;">YOLOv8n · 30fps</div>
+      </div>
+      <div id="det-table" class="space-y-1"></div>
+    </div>`;
+
+  const boxArea = document.getElementById('det-boxes');
+  const table = document.getElementById('det-table');
+
+  detections.forEach((d, i) => {
+    const t = setTimeout(() => {
+      const box = document.createElement('div');
+      box.className = 'detection-box';
+      box.style.cssText = `left:${d.x}%;top:${d.y}%;width:${d.w}%;height:${d.h}%;border:1.5px solid ${d.color};border-radius:4px;`;
+      box.innerHTML = `<span style="position:absolute;top:-18px;left:0;font-size:9px;color:${d.color};background:rgba(0,0,0,.7);padding:1px 4px;border-radius:3px;white-space:nowrap;">${d.label} ${d.conf}%</span>`;
+      boxArea.appendChild(box);
+
+      const row = document.createElement('div');
+      row.style.cssText = `display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:8px;background:rgba(15,23,42,.7);border:1px solid rgba(148,163,184,.08);animation:fadeInUp .4s ease-out;font-size:11px;`;
+      row.innerHTML = `<span style="color:#e2e8f0;">${d.label}</span><span style="color:#94a3b8;">신뢰도 ${d.conf}%</span><span style="color:${d.color};font-weight:600;">${d.status}</span>`;
+      table.appendChild(row);
+    }, d.delay);
+    simTimers.push(t);
+  });
+
+  const t = setTimeout(() => {
+    const summary = document.createElement('div');
+    summary.style.cssText = `margin-top:8px;padding:10px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);animation:fadeIn .5s ease-out;font-size:11px;`;
+    summary.innerHTML = `<div style="color:#f87171;font-weight:700;margin-bottom:4px;">📋 자동 리포트 생성됨</div><div style="color:#94a3b8;">정상 2건 · 주의 1건 · 불량 1건 → 철탑점검 업무지시 자동 발행</div>`;
+    table.appendChild(summary);
+  }, 3200);
+  simTimers.push(t);
+},
+
+// ──── Relay Verification ─────────────────────────────────
+relay: (el) => {
+  const relays = [
+    {id:'GCB-101A', type:'거리계전기', setting:'1.2Ω / 0.3s', expected:'1.0~1.5Ω', status:'normal'},
+    {id:'OCR-201B', type:'과전류계전기', setting:'2.5A / 0.5s', expected:'2.0~3.0A', status:'normal'},
+    {id:'DFR-301C', type:'차동계전기', setting:'0.18pu / 즉시', expected:'0.15~0.25pu', status:'warning'},
+    {id:'GCB-402D', type:'거리계전기', setting:'0.8Ω / 0.2s', expected:'1.0~1.5Ω', status:'error'},
+    {id:'OCR-503E', type:'과전류계전기', setting:'1.8A / 0.6s', expected:'1.5~2.5A', status:'normal'},
+  ];
+  let checked = 0;
+
+  const statusConf = {
+    normal:{color:'#22c55e',bg:'rgba(34,197,94,.08)',border:'rgba(34,197,94,.2)',icon:'✓',label:'정상'},
+    warning:{color:'#f59e0b',bg:'rgba(245,158,11,.08)',border:'rgba(245,158,11,.2)',icon:'⚠',label:'경고'},
+    error:{color:'#ef4444',bg:'rgba(239,68,68,.08)',border:'rgba(239,68,68,.2)',icon:'✗',label:'오류'},
+  };
+
+  function render() {
+    const counts = {normal:0,warning:0,error:0};
+    relays.slice(0,checked).forEach(r=>counts[r.status]++);
+    el.innerHTML = `
+      <div class="p-2">
+        <div class="flex items-center gap-2 mb-3 text-xs">
+          ${checked<relays.length?`<span class="spinner"></span><span class="text-slate-300">정정값 검증 중 (${checked}/${relays.length})</span>`:`<span class="text-green-400 font-bold">✓ 검증 완료</span>`}
+        </div>
+        <div class="rounded-xl overflow-hidden mb-3" style="border:1px solid rgba(148,163,184,.1);">
+          <div class="grid text-xs font-semibold text-slate-400 p-2" style="grid-template-columns:1fr 1fr 1fr 1fr 80px;background:rgba(15,23,42,.9);">
+            <div>계전기 ID</div><div>정정값</div><div>허용범위</div><div>유형</div><div>검증</div>
+          </div>
+          ${relays.map((r,i)=>{
+            const sc = statusConf[r.status];
+            const show = i < checked;
+            return `<div class="grid text-xs p-2 items-center" style="grid-template-columns:1fr 1fr 1fr 1fr 80px;background:${show&&r.status!=='normal'?sc.bg:i%2?'rgba(30,41,59,.2)':'rgba(15,23,42,.2)'};${show&&r.status!=='normal'?`border-left:3px solid ${sc.color};`:''}">
+              <div class="font-mono text-slate-200">${r.id}</div>
+              <div class="font-mono text-sky-300">${show?r.setting:'—'}</div>
+              <div class="text-slate-400">${show?r.expected:'—'}</div>
+              <div class="text-slate-400">${r.type}</div>
+              <div>${show?`<span style="color:${sc.color};font-weight:700;">${sc.icon} ${sc.label}</span>`:'<span class="text-slate-600">대기</span>'}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        ${checked >= relays.length ? `
+          <div class="grid grid-cols-3 gap-2 mb-2">
+            <div class="p-2 rounded-lg text-center" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);">
+              <div class="text-base font-bold text-green-400">${counts.normal}</div>
+              <div class="text-xs text-slate-400">정상</div>
+            </div>
+            <div class="p-2 rounded-lg text-center" style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);">
+              <div class="text-base font-bold text-yellow-400">${counts.warning}</div>
+              <div class="text-xs text-slate-400">경고</div>
+            </div>
+            <div class="p-2 rounded-lg text-center" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);">
+              <div class="text-base font-bold text-red-400">${counts.error}</div>
+              <div class="text-xs text-slate-400">오류</div>
+            </div>
+          </div>
+          <div class="p-2 rounded-xl text-xs" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);">
+            <div class="text-red-400 font-bold">🚨 GCB-402D: 정정값 범위 이탈</div>
+            <div class="text-slate-300 mt-1">현재값 0.8Ω — 허용범위(1.0~1.5Ω) 미만. 담당자 즉시 검토 요망.</div>
+          </div>` : ''}
+      </div>`;
+  }
+
+  render();
+  const iv = setInterval(() => {
+    if (checked < relays.length) { checked++; render(); }
+    else clearInterval(iv);
+  }, 1200);
+  simTimers.push(iv);
+},
+
 }; // end SIM
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// HELPERS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function getWireColor(c) {
+  const m = {'황색':'#eab308','적색':'#ef4444','갈색':'#92400e','백색':'#e2e8f0','흑색':'#475569','청색':'#3b82f6','녹색':'#22c55e'};
+  for (const k in m) if (c.startsWith(k)) return m[k];
+  return '#94a3b8';
+}
+function getWireBg(c) {
+  const m = {'황색':'rgba(234,179,8,.3)','적색':'rgba(239,68,68,.3)','갈색':'rgba(146,64,14,.3)','백색':'rgba(226,232,240,.3)','흑색':'rgba(71,85,105,.3)','청색':'rgba(59,130,246,.3)','녹색':'rgba(34,197,94,.3)'};
+  for (const k in m) if (c.startsWith(k)) return m[k];
+  return 'transparent';
+}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // EVENT LISTENERS
