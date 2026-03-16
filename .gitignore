@@ -14,3 +14,5 @@ Desktop.ini
 # logs
 *.log
 npm-debug.log*
+
+.vercel
