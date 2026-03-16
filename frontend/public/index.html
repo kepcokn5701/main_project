@@ -176,17 +176,23 @@ const PROJECTS = [
   ],
 },
 {
-  id:2, sim:'none', category:'송변전', catColor:'violet', icon:'calendar-clock',
+  id:2, sim:'outage', category:'송변전', catColor:'violet', icon:'calendar-clock',
   gradFrom:'#6d28d9', gradTo:'#7c3aed',
-  title:'배전선로 휴전일정 예측', subtitle:'추후 개발 예정',
-  status:'planned',
-  problem:'',
-  solution:'',
-  difficulty:0, timeline:'미정', mvp:'미정', cost:'미정',
-  stack:[],
-  ai:[],
-  infra:[],
-  workflow:[],
+  title:'배전선로 부하전환 예측', subtitle:'XGBoost 기반 적기휴전 예측 시스템',
+  status:'active',
+  problem:'배전선로 부하절체 검토 누락 시 보호계전기 오동작으로 정전 발생 우려. 휴전신청을 놓쳐 주말 작업이 늘어나는 문제 발생. (\'24년 배전선로 휴전 112건 중 주말휴전 87건 → 개선 후 61건)',
+  solution:'사내 시스템(SOMAS)에서 부하 데이터를 추출·업로드하면, XGBoost 알고리즘이 과거 부하 패턴을 학습하여 향후 1년 이내 월별 휴전 가능일수를 예측. 부하전환 가능여부를 Blue/Yellow/Red 히트맵으로 시각화.',
+  difficulty:3, timeline:'3~4개월', mvp:'8주', cost:'₩0 (오픈소스)',
+  stack:[{n:'Python 3.11',t:'lang'},{n:'XGBoost',t:'ai'},{n:'Pandas',t:'lib'},{n:'FastAPI',t:'back'},{n:'Streamlit',t:'front'},{n:'scikit-learn',t:'ai'}],
+  ai:[{n:'XGBoost',d:'부하전환 가능성 예측 (분류/회귀)',free:true,src:'오픈소스'},{n:'scikit-learn',d:'데이터 전처리 및 특성 엔지니어링',free:true,src:'오픈소스'},{n:'Prophet',d:'부하 시계열 보조 예측',free:true,src:'Meta/오픈소스'}],
+  infra:[{icon:'database',lbl:'데이터 소스',val:'SOMAS 부하 데이터',note:'선로정보 + D/L 부하'},{icon:'server',lbl:'예측 서버',val:'Railway (무료)',note:'FastAPI + XGBoost 모델'},{icon:'globe',lbl:'대시보드',val:'Streamlit Cloud',note:'히트맵 시각화'},{icon:'cpu',lbl:'학습 환경',val:'Google Colab (무료)',note:'모델 학습 & 튜닝'}],
+  workflow:[
+    {i:'download',l:'부하 데이터 추출',d:'사내 SOMAS 시스템에서 선로별 부하 데이터(D/L, M.Tr) 파일 추출'},
+    {i:'upload',l:'시스템 업로드',d:'추출된 부하 데이터를 예측 시스템 웹 UI에 업로드'},
+    {i:'cpu',l:'XGBoost 예측',d:'과거 부하 패턴 학습 → 논리연산(합산 250A) 기준 휴전 가능 여부 판단'},
+    {i:'calendar',l:'월별 히트맵 생성',d:'향후 12개월 부하전환 가능일수 Blue/Yellow/Red 히트맵 출력'},
+    {i:'bell',l:'적기휴전 계획',d:'연간 휴전 신청 최적 일정 자동 추천 → 담당자 알림'},
+  ],
 },
 {
   id:3, sim:'ocr', category:'배전', catColor:'teal', icon:'scan',
@@ -709,6 +715,110 @@ cs: (el) => {
       simTimers.push(t);
     });
   }, 300);
+},
+
+// ──── Outage (배전선로 부하전환 예측) ──────────────────────
+outage: (el) => {
+  // 12개 선로 x 12개월 히트맵 데이터 (0~100: 휴전가능 확률%)
+  const lines = ['DL-101','DL-102','DL-103','DL-201','DL-202','DL-203','DL-301','DL-302'];
+  const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const data = [
+    [92,88,85,72,55,32,18,15,28,65,82,90],
+    [85,80,78,65,48,25,12,10,22,58,75,83],
+    [78,75,70,60,42,30,22,20,35,55,70,76],
+    [95,92,90,80,68,45,30,25,40,72,88,93],
+    [70,65,62,50,35,20,8,5,15,45,62,68],
+    [88,85,82,75,60,38,25,20,32,68,80,86],
+    [60,55,50,42,28,15,5,3,10,38,52,58],
+    [82,78,75,68,52,35,20,18,30,60,74,80],
+  ];
+
+  function getColor(v) {
+    if (v >= 70) return {bg:'rgba(59,130,246,.7)',text:'#fff',label:'Blue'};
+    if (v >= 40) return {bg:'rgba(234,179,8,.7)',text:'#000',label:'Yellow'};
+    return {bg:'rgba(239,68,68,.7)',text:'#fff',label:'Red'};
+  }
+
+  let revealedRows = 0;
+
+  function render() {
+    const totalCells = lines.length * 12;
+    const blueCells = data.flat().filter(v=>v>=70).length;
+    const yellowCells = data.flat().filter(v=>v>=40&&v<70).length;
+    const redCells = data.flat().filter(v=>v<40).length;
+
+    el.innerHTML = `
+      <div class="p-2">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-bold text-slate-200">배전선로 월별 부하전환 가능여부 예측</div>
+          <div class="flex items-center gap-2 text-xs">
+            ${revealedRows < lines.length ? `<span class="spinner"></span><span class="text-slate-400">XGBoost 분석 중... (${revealedRows}/${lines.length})</span>` : `<span class="text-green-400 font-bold">✓ 예측 완료</span>`}
+          </div>
+        </div>
+
+        <!-- 히트맵 테이블 -->
+        <div class="rounded-xl overflow-hidden mb-3" style="border:1px solid rgba(148,163,184,.1);">
+          <div class="grid text-center" style="grid-template-columns:70px repeat(12,1fr);">
+            <div class="text-xs font-semibold text-slate-400 p-1.5" style="background:rgba(15,23,42,.9);">선로</div>
+            ${months.map(m=>`<div class="text-xs font-semibold text-slate-400 p-1.5" style="background:rgba(15,23,42,.9);">${m}</div>`).join('')}
+          </div>
+          ${lines.map((line,ri)=>`
+            <div class="grid text-center" style="grid-template-columns:70px repeat(12,1fr);${ri>=revealedRows?'opacity:0.15;':'animation:fadeIn .4s ease-out;'}">
+              <div class="text-xs font-mono text-slate-300 p-1.5 flex items-center justify-center" style="background:rgba(15,23,42,.7);border-top:1px solid rgba(148,163,184,.05);">${line}</div>
+              ${data[ri].map(v=>{
+                const c = getColor(v);
+                return `<div class="text-xs font-bold p-1.5" style="background:${ri<revealedRows?c.bg:'rgba(30,41,59,.3)'};color:${ri<revealedRows?c.text:'#334155'};border-top:1px solid rgba(148,163,184,.03);">${ri<revealedRows?v+'%':'—'}</div>`;
+              }).join('')}
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- 범례 -->
+        <div class="flex items-center gap-4 text-xs mb-3 px-1">
+          <span class="text-slate-400 font-semibold">1달 내 휴전가능일 :</span>
+          <span class="flex items-center gap-1"><span style="width:14px;height:10px;background:rgba(59,130,246,.8);border-radius:2px;display:inline-block;"></span> <span class="text-sky-300">Blue</span> 100%~70%</span>
+          <span class="flex items-center gap-1"><span style="width:14px;height:10px;background:rgba(234,179,8,.8);border-radius:2px;display:inline-block;"></span> <span class="text-yellow-300">Yellow</span> 70%~40%</span>
+          <span class="flex items-center gap-1"><span style="width:14px;height:10px;background:rgba(239,68,68,.8);border-radius:2px;display:inline-block;"></span> <span class="text-red-300">Red</span> 40%~0%</span>
+        </div>
+
+        ${revealedRows >= lines.length ? `
+        <!-- 분석 요약 -->
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <div class="p-2 rounded-lg text-center" style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);">
+            <div class="text-base font-bold text-blue-400">${blueCells}건</div>
+            <div class="text-xs text-slate-400">휴전 가능 (Blue)</div>
+          </div>
+          <div class="p-2 rounded-lg text-center" style="background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);">
+            <div class="text-base font-bold text-yellow-400">${yellowCells}건</div>
+            <div class="text-xs text-slate-400">조건부 가능 (Yellow)</div>
+          </div>
+          <div class="p-2 rounded-lg text-center" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);">
+            <div class="text-base font-bold text-red-400">${redCells}건</div>
+            <div class="text-xs text-slate-400">휴전 불가 (Red)</div>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl" style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);">
+          <div class="text-xs font-bold text-green-400 mb-1">📋 적기휴전 추천 일정</div>
+          <div class="text-xs text-slate-300">• <span class="text-blue-400 font-semibold">1~3월, 10~12월</span> — 대부분 선로 휴전 가능 (부하 낮음)</div>
+          <div class="text-xs text-slate-300 mt-1">• <span class="text-red-400 font-semibold">7~8월</span> — 하계 피크 부하로 휴전 지양 권고</div>
+          <div class="text-xs text-slate-300 mt-1">• 평일 휴전 전환 시 <span class="text-green-400 font-semibold">노무비 약 33% 절감</span> (주말 1.5배 가산 회피)</div>
+        </div>
+
+        <div class="p-2 rounded-xl text-xs mt-2" style="background:rgba(56,189,248,.05);border:1px solid rgba(56,189,248,.1);">
+          <span class="text-sky-400 font-semibold">XGBoost 모델 정확도:</span>
+          <span class="text-slate-300"> F1-Score 0.91 / AUC 0.94 (합산 250A 기준 논리연산)</span>
+        </div>
+        ` : ''}
+      </div>`;
+  }
+
+  render();
+  const iv = setInterval(() => {
+    if (revealedRows < lines.length) { revealedRows++; render(); }
+    else clearInterval(iv);
+  }, 800);
+  simTimers.push(iv);
 },
 
 // ──── OCR ─────────────────────────────────────────────────
