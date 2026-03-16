@@ -61,6 +61,15 @@ body{font-family:'Noto Sans KR',-apple-system,sans-serif;background:#070b16;colo
 .status-active{background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#86efac;}
 .status-planned{background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.25);color:#fde68a;}
 .status-future{background:rgba(148,163,184,.1);border:1px solid rgba(148,163,184,.15);color:#94a3b8;}
+
+/* Card mini animations */
+.card-visual{position:relative;height:72px;border-radius:10px;overflow:hidden;margin:4px 0;}
+@keyframes barWave{0%{height:30%}50%{height:80%}100%{height:30%}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes slideRight{from{transform:translateX(-100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes heatPulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes scanMove{0%{left:-30%}100%{left:100%}}
+.tag-func{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:#7dd3fc;}
 </style>
 </head>
 <body>
@@ -163,7 +172,8 @@ const PROJECTS = [
   status:'active',
   problem:'월 5만 건+ 설문 데이터 수작업 분석. 과도한 시간 소요로 CS 활동에 미활용됨.',
   solution:'형태소 분석+ML로 감성 분류, 워드클라우드, 잠재 민원 고객 사전 케어 리스트 자동 생성.',
-  difficulty:2, timeline:'2~3개월', mvp:'약 6주', cost:'₩0 (무료 티어)',
+  timeline:'2~3개월', proto:'약 6주', cost:'₩0 (무료 티어)',
+  tags:['감성 분석','키워드 추출','자동 리포트'],
   stack:[{n:'Python 3.11',t:'lang'},{n:'Pandas',t:'lib'},{n:'KoNLPy',t:'ai'},{n:'Streamlit',t:'front'},{n:'FastAPI',t:'back'},{n:'scikit-learn',t:'ai'}],
   ai:[{n:'KoELECTRA',d:'한국어 감성 분류',free:true,src:'HuggingFace'},{n:'GPT-4o',d:'인사이트 자동 요약',free:false,src:'OpenAI API'},{n:'LDA',d:'토픽 모델링',free:true,src:'scikit-learn'}],
   infra:[{icon:'globe',lbl:'프론트엔드',val:'Vercel (무료)',note:'GitHub Actions 자동 배포'},{icon:'server',lbl:'백엔드',val:'Railway 무료 티어',note:'FastAPI + $5 크레딧'},{icon:'database',lbl:'데이터베이스',val:'Supabase PostgreSQL',note:'무료 500MB'},{icon:'cpu',lbl:'AI 서비스',val:'HuggingFace Inference',note:'오픈소스 모델 무료'}],
@@ -178,11 +188,12 @@ const PROJECTS = [
 {
   id:2, sim:'outage', category:'송변전', catColor:'violet', icon:'calendar-clock',
   gradFrom:'#6d28d9', gradTo:'#7c3aed',
-  title:'배전선로 부하전환 예측', subtitle:'XGBoost 기반 적기휴전 예측 시스템',
+  title:'배전선로 부하전환 예측', subtitle:'AI 기반 적기휴전 예측 시스템',
   status:'active',
   problem:'배전선로 부하절체 검토 누락 시 보호계전기 오동작으로 정전 발생 우려. 휴전신청을 놓쳐 주말 작업이 늘어나는 문제 발생. (\'24년 배전선로 휴전 112건 중 주말휴전 87건 → 개선 후 61건)',
-  solution:'사내 시스템(SOMAS)에서 부하 데이터를 추출·업로드하면, XGBoost 알고리즘이 과거 부하 패턴을 학습하여 향후 1년 이내 월별 휴전 가능일수를 예측. 부하전환 가능여부를 Blue/Yellow/Red 히트맵으로 시각화.',
-  difficulty:3, timeline:'3~4개월', mvp:'8주', cost:'₩0 (오픈소스)',
+  solution:'사내 시스템(SOMAS)에서 부하 데이터를 추출·업로드하면, AI가 과거 부하 패턴을 학습하여 향후 1년 이내 월별 휴전 가능일수를 예측. 부하전환 가능여부를 Blue/Yellow/Red 히트맵으로 시각화.',
+  timeline:'3~4개월', proto:'8주', cost:'₩0 (오픈소스)',
+  tags:['부하 예측','히트맵 시각화','자동 알림'],
   stack:[{n:'Python 3.11',t:'lang'},{n:'XGBoost',t:'ai'},{n:'Pandas',t:'lib'},{n:'FastAPI',t:'back'},{n:'Streamlit',t:'front'},{n:'scikit-learn',t:'ai'}],
   ai:[{n:'XGBoost',d:'부하전환 가능성 예측 (분류/회귀)',free:true,src:'오픈소스'},{n:'scikit-learn',d:'데이터 전처리 및 특성 엔지니어링',free:true,src:'오픈소스'},{n:'Prophet',d:'부하 시계열 보조 예측',free:true,src:'Meta/오픈소스'}],
   infra:[{icon:'database',lbl:'데이터 소스',val:'SOMAS 부하 데이터',note:'선로정보 + D/L 부하'},{icon:'server',lbl:'예측 서버',val:'Railway (무료)',note:'FastAPI + XGBoost 모델'},{icon:'globe',lbl:'대시보드',val:'Streamlit Cloud',note:'히트맵 시각화'},{icon:'cpu',lbl:'학습 환경',val:'Google Colab (무료)',note:'모델 학습 & 튜닝'}],
@@ -201,7 +212,8 @@ const PROJECTS = [
   status:'active',
   problem:'업체 제출 영수증/세금계산서/사진을 담당자가 매번 수동 확인 → 비효율 및 누락 위험.',
   solution:'OCR로 증빙 자동 데이터화 + QR코드로 국세청 검증 + AI가 기준 적합성 자동 판단.',
-  difficulty:3, timeline:'3~4개월', mvp:'10주', cost:'월 ~$30 (GPT-4o API)',
+  timeline:'3~4개월', proto:'10주', cost:'월 ~$30 (GPT-4o API)',
+  tags:['문서 인식(OCR)','AI 적합성 판정','위변조 검증'],
   stack:[{n:'Python',t:'lang'},{n:'Tesseract OCR',t:'ai'},{n:'GPT-4o Vision',t:'ai'},{n:'FastAPI',t:'back'},{n:'React',t:'front'},{n:'PostgreSQL',t:'db'}],
   ai:[{n:'GPT-4o Vision',d:'영수증/서류 내용 추출',free:false,src:'OpenAI API'},{n:'Tesseract OCR',d:'텍스트 추출 (무료)',free:true,src:'오픈소스'},{n:'QR 검증 API',d:'국세청 세금계산서 대조',free:true,src:'홈택스 API'}],
   infra:[{icon:'upload',lbl:'파일 업로드',val:'Vercel (무료)',note:'PDF/이미지 업로드'},{icon:'server',lbl:'OCR 서버',val:'Railway (무료)',note:'Tesseract + Python'},{icon:'cpu',lbl:'AI 검증',val:'GPT-4o API',note:'월 ~$30 (소량)'},{icon:'database',lbl:'검증 DB',val:'Supabase (무료)',note:'처리 이력 저장'}],
@@ -347,47 +359,42 @@ let futureOpen = false;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // RENDER MAIN CARDS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 카드별 미니 모션 그래픽
+const CARD_VISUALS = {
+  1: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(3,105,161,.15),rgba(2,132,199,.05));">
+    <div style="display:flex;align-items:flex-end;gap:3px;height:100%;padding:10px 14px;">
+      ${[65,23,12,45,78,34,56,88,42,67,55,30].map((h,i)=>`<div style="flex:1;background:${h>60?'rgba(34,197,94,.6)':h>30?'rgba(56,189,248,.5)':'rgba(239,68,68,.5)'};border-radius:3px 3px 0 0;animation:barWave 2s ease-in-out ${i*0.15}s infinite;height:${h}%;"></div>`).join('')}
+    </div>
+    <div style="position:absolute;top:8px;right:10px;font-size:9px;color:rgba(56,189,248,.6);font-weight:600;">감성 분석 처리 중...</div>
+  </div>`,
+  2: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(109,40,217,.15),rgba(124,58,237,.05));">
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px;height:100%;padding:10px 14px;">
+      ${['#3b82f6','#3b82f6','#eab308','#ef4444','#ef4444','#3b82f6','#3b82f6','#eab308','#eab308','#ef4444','#3b82f6','#3b82f6','#3b82f6','#eab308','#ef4444','#ef4444','#3b82f6','#3b82f6','#3b82f6','#3b82f6','#eab308','#eab308','#3b82f6','#3b82f6'].map((c,i)=>`<div style="background:${c};opacity:.5;border-radius:2px;animation:heatPulse 2.5s ease-in-out ${i*0.1}s infinite;"></div>`).join('')}
+    </div>
+    <div style="position:absolute;top:8px;right:10px;font-size:9px;color:rgba(139,92,246,.6);font-weight:600;">부하 예측 히트맵</div>
+  </div>`,
+  3: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(19,78,74,.15),rgba(13,148,136,.05));overflow:hidden;">
+    <div style="position:absolute;inset:0;padding:12px;">
+      <div style="width:55%;height:75%;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;position:relative;overflow:hidden;">
+        ${Array.from({length:6},(_,i)=>`<div style="height:5px;background:#e2e8f0;border-radius:2px;margin:5px 6px;width:${50+Math.random()*40}%;"></div>`).join('')}
+        <div style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(20,184,166,.8),transparent);animation:scanLine 2s linear infinite;top:0;"></div>
+      </div>
+    </div>
+    <div style="position:absolute;top:14px;right:12px;display:flex;flex-direction:column;gap:3px;">
+      ${['업체명','금액','판정'].map((t,i)=>`<div style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(20,184,166,.15);color:#5eead4;animation:slideRight .4s ease-out ${i*0.3+0.5}s both;">${t} ✓</div>`).join('')}
+    </div>
+    <div style="position:absolute;bottom:8px;right:10px;font-size:9px;color:rgba(20,184,166,.6);font-weight:600;">OCR 스캔 중...</div>
+  </div>`,
+};
+
 function renderCards() {
   const grid = document.getElementById('cards-grid');
   grid.innerHTML = PROJECTS.map((p, idx) => {
-    const isPlanned = p.status === 'planned';
-    const stars = p.difficulty > 0 ? Array.from({length:5}, (_,i) => `<span style="color:${i<p.difficulty?'#f59e0b':'#1e293b'}">★</span>`).join('') : '';
-
-    if (isPlanned) {
-      return `
-      <div class="project-card placeholder rounded-2xl p-5 flex flex-col gap-3"
-           style="animation:fadeInUp .5s ease-out ${idx*60}ms both;border:1px dashed rgba(148,163,184,.2);">
-        <div class="flex items-start justify-between">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-               style="background:linear-gradient(135deg,${p.gradFrom},${p.gradTo});opacity:.5;box-shadow:0 4px 14px rgba(0,0,0,.4);">
-            <i data-lucide="${p.icon}" style="width:18px;height:18px;color:white;"></i>
-          </div>
-          <span class="status-badge status-planned">
-            <i data-lucide="clock" style="width:10px;height:10px;"></i>
-            준비 중
-          </span>
-        </div>
-        <div>
-          <div class="font-bold text-white text-sm leading-tight">${p.title}</div>
-          <div class="text-xs text-slate-500 mt-1 leading-relaxed">${p.subtitle}</div>
-        </div>
-        <div class="flex-1 flex items-center justify-center py-6">
-          <div class="text-center">
-            <div class="text-3xl mb-2" style="opacity:.3;">🚧</div>
-            <div class="text-xs text-slate-500">추후 개발 예정</div>
-            <div class="text-xs text-slate-600 mt-1">상세 내용은 확정 후 업데이트됩니다</div>
-          </div>
-        </div>
-        <div class="flex items-center justify-between mt-auto pt-2" style="border-top:1px solid rgba(148,163,184,.05);">
-          <span class="text-xs px-2 py-0.5 rounded-full" style="background:${catColors[p.catColor]};color:${textColors[p.catColor]}">${p.category}</span>
-          <div class="text-xs text-slate-600">일정 미정</div>
-        </div>
-      </div>`;
-    }
+    const visual = CARD_VISUALS[p.id] || '';
 
     return `
     <div class="project-card rounded-2xl p-5 flex flex-col gap-3"
-         style="animation:fadeInUp .5s ease-out ${idx*60}ms both;"
+         style="animation:fadeInUp .5s ease-out ${idx*80}ms both;"
          onclick="openModal(${p.id})">
       <div class="flex items-start justify-between">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -400,21 +407,17 @@ function renderCards() {
         </span>
       </div>
       <div>
-        <div class="font-bold text-white text-sm leading-tight">${p.title}</div>
+        <div class="font-bold text-white text-[15px] leading-tight">${p.title}</div>
         <div class="text-xs text-slate-400 mt-1 leading-relaxed">${p.subtitle}</div>
       </div>
-      <div class="flex items-center justify-between text-xs">
-        <div class="flex gap-0.5">${stars}</div>
-        <span class="text-slate-400">${p.difficulty}/5 난이도</span>
-      </div>
-      <div class="flex flex-wrap gap-1">
-        ${p.stack.slice(0,3).map(s => `<span class="text-xs px-2 py-0.5 rounded-full ${STACK_TAG_MAP[s.t]||'tag-lib'}">${s.n}</span>`).join('')}
-        ${p.stack.length>3?`<span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(148,163,184,.1);color:#94a3b8;">+${p.stack.length-3}</span>`:''}
+      ${visual}
+      <div class="flex flex-wrap gap-1.5">
+        ${(p.tags||[]).map(t => `<span class="text-xs px-2.5 py-0.5 rounded-full tag-func">${t}</span>`).join('')}
       </div>
       <div class="flex items-center justify-between mt-auto pt-2" style="border-top:1px solid rgba(148,163,184,.08);">
         <div class="flex items-center gap-2">
           <span class="text-xs px-2 py-0.5 rounded-full" style="background:${catColors[p.catColor]};color:${textColors[p.catColor]}">${p.category}</span>
-          <span class="text-xs text-slate-400">MVP: <span class="text-slate-300 font-medium">${p.mvp}</span></span>
+          <span class="text-xs text-slate-400">프로토타입: <span class="text-slate-300 font-medium">${p.proto}</span></span>
         </div>
         <div class="flex items-center gap-1 text-xs font-medium" style="color:${textColors[p.catColor]}">
           상세 보기
@@ -501,7 +504,7 @@ function renderModalHeader(p) {
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <span class="text-xs px-3 py-1.5 rounded-full" style="background:rgba(15,23,42,.8);border:1px solid rgba(148,163,184,.15);color:${textColors[p.catColor]}">난이도 ${p.difficulty}/5</span>
+      <span class="text-xs px-3 py-1.5 rounded-full" style="background:rgba(15,23,42,.8);border:1px solid rgba(148,163,184,.15);color:${textColors[p.catColor]}">${p.category}</span>
       <span class="text-xs px-3 py-1.5 rounded-full" style="background:rgba(15,23,42,.8);border:1px solid rgba(148,163,184,.15);color:#94a3b8;">${p.timeline}</span>
       <button onclick="closeModal()" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-700 transition-colors">
         <i data-lucide="x" style="width:16px;height:16px;color:#94a3b8;"></i>
@@ -550,8 +553,8 @@ function renderModalLeft(p, tab) {
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div class="p-3 rounded-xl" style="background:rgba(15,23,42,.8);border:1px solid rgba(56,189,248,.15);">
-            <div class="text-xs text-slate-400">MVP 기간</div>
-            <div class="font-bold text-sky-400 mt-1">${p.mvp}</div>
+            <div class="text-xs text-slate-400">프로토타입 개발</div>
+            <div class="font-bold text-sky-400 mt-1">${p.proto||p.mvp||'미정'}</div>
           </div>
           <div class="p-3 rounded-xl" style="background:rgba(15,23,42,.8);border:1px solid rgba(56,189,248,.15);">
             <div class="text-xs text-slate-400">예상 비용</div>
