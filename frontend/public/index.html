@@ -450,23 +450,139 @@ const CARD_VISUALS = {
       </g>
     </svg>
   </div>`,
-  2: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(109,40,217,.15),rgba(124,58,237,.05));">
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:2px;height:100%;padding:10px 14px;">
-      ${['#3b82f6','#3b82f6','#eab308','#ef4444','#ef4444','#3b82f6','#3b82f6','#eab308','#eab308','#ef4444','#3b82f6','#3b82f6','#3b82f6','#eab308','#ef4444','#ef4444','#3b82f6','#3b82f6','#3b82f6','#3b82f6','#eab308','#eab308','#3b82f6','#3b82f6'].map((c,i)=>`<div style="background:${c};opacity:.5;border-radius:2px;animation:heatPulse 2.5s ease-in-out ${i*0.1}s infinite;"></div>`).join('')}
-    </div>
-    <div style="position:absolute;top:8px;right:10px;font-size:9px;color:rgba(139,92,246,.6);font-weight:600;">부하 예측 히트맵</div>
+  2: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(109,40,217,.12),rgba(124,58,237,.04));padding:0;height:auto;min-height:140px;">
+    <svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;">
+      <text x="16" y="18" fill="#94a3b8" font-size="7" font-weight="600" letter-spacing=".5">배전선로 부하전환 예측  ·  24시간</text>
+      <!-- 시간대별 부하 곡선 -->
+      <g transform="translate(16,28)">
+        <rect x="0" y="0" width="288" height="70" rx="6" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+        <!-- Y축 라벨 -->
+        <text x="6" y="12" fill="#64748b" font-size="4">100%</text>
+        <text x="6" y="36" fill="#64748b" font-size="4">50%</text>
+        <text x="6" y="60" fill="#64748b" font-size="4">0%</text>
+        <!-- 그리드 -->
+        <line x1="28" y1="9" x2="280" y2="9" stroke="rgba(148,163,184,.06)" stroke-width=".5"/>
+        <line x1="28" y1="33" x2="280" y2="33" stroke="rgba(148,163,184,.06)" stroke-width=".5"/>
+        <line x1="28" y1="57" x2="280" y2="57" stroke="rgba(148,163,184,.06)" stroke-width=".5"/>
+        <!-- 위험 구간 배경 -->
+        <rect x="155" y="8" width="55" height="52" rx="2" fill="rgba(239,68,68,.06)"/>
+        <!-- 부하 곡선 A선로 -->
+        <polyline points="28,50 50,48 72,44 94,38 116,30 138,20 155,14 170,12 185,15 200,25 215,35 235,42 255,46 275,48" stroke="rgba(139,92,246,.7)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <!-- 부하 곡선 B선로 -->
+        <polyline points="28,52 50,50 72,47 94,42 116,36 138,28 155,22 170,18 185,20 200,30 215,38 235,44 255,48 275,50" stroke="rgba(56,189,248,.5)" stroke-width="1.5" fill="none" stroke-dasharray="3 2" stroke-linecap="round"/>
+        <!-- 임계선 -->
+        <line x1="28" y1="16" x2="280" y2="16" stroke="rgba(239,68,68,.4)" stroke-width=".7" stroke-dasharray="4 2"/>
+        <text x="282" y="18" fill="#ef4444" font-size="4" font-weight="600">임계</text>
+        <!-- 피크 표시 -->
+        <circle cx="170" cy="12" r="3" fill="rgba(239,68,68,.2)" stroke="#ef4444" stroke-width=".7"/>
+        <text x="170" y="7" text-anchor="middle" fill="#f87171" font-size="3.5" font-weight="600">피크 96%</text>
+        <!-- X축 시간 -->
+        <text x="28" y="66" fill="#64748b" font-size="3.5">00시</text>
+        <text x="90" y="66" fill="#64748b" font-size="3.5">06시</text>
+        <text x="152" y="66" fill="#64748b" font-size="3.5">12시</text>
+        <text x="214" y="66" fill="#64748b" font-size="3.5">18시</text>
+        <text x="265" y="66" fill="#64748b" font-size="3.5">24시</text>
+      </g>
+      <!-- 히트맵 미니 -->
+      <g transform="translate(16,108)">
+        <text x="0" y="8" fill="#94a3b8" font-size="5.5" font-weight="600">구간별 부하 히트맵</text>
+        <g transform="translate(0,14)">
+          ${[
+            ['#3b82f6','#3b82f6','#eab308','#ef4444','#ef4444','#eab308','#3b82f6'],
+            ['#3b82f6','#eab308','#eab308','#ef4444','#eab308','#3b82f6','#3b82f6'],
+            ['#22c55e','#3b82f6','#3b82f6','#eab308','#3b82f6','#22c55e','#22c55e'],
+          ].map((row,r)=>row.map((c,i)=>'<rect x="'+(i*18)+'" y="'+(r*12)+'" width="16" height="10" rx="2" fill="'+c+'" opacity=".45"/>').join('')).join('')}
+        </g>
+        <text x="0" y="56" fill="#64748b" font-size="3.5">A구간</text>
+        <text x="18" y="56" fill="#64748b" font-size="3.5">B</text>
+        <text x="36" y="56" fill="#64748b" font-size="3.5">C</text>
+        <text x="54" y="56" fill="#64748b" font-size="3.5">D</text>
+        <text x="72" y="56" fill="#64748b" font-size="3.5">E</text>
+        <text x="90" y="56" fill="#64748b" font-size="3.5">F</text>
+        <text x="108" y="56" fill="#64748b" font-size="3.5">G</text>
+      </g>
+      <!-- 전환 추천 -->
+      <g transform="translate(150,108)">
+        <text x="0" y="8" fill="#94a3b8" font-size="5.5" font-weight="600">AI 전환 추천</text>
+        <rect x="0" y="14" width="160" height="20" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="8" y="27" fill="#c4b5fd" font-size="5">D구간 → E구간</text>
+        <text x="80" y="27" fill="#a78bfa" font-size="5" font-weight="700">부하 32% 절감</text>
+        <rect x="0" y="38" width="160" height="20" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="8" y="51" fill="#c4b5fd" font-size="5">C구간 → A구간</text>
+        <text x="80" y="51" fill="#a78bfa" font-size="5" font-weight="700">부하 18% 절감</text>
+        <rect x="0" y="62" width="68" height="11" rx="4" fill="rgba(139,92,246,.12)" stroke="rgba(139,92,246,.25)" stroke-width=".5"/>
+        <text x="34" y="70" text-anchor="middle" fill="#a78bfa" font-size="4.5">최적 전환시점: 14시</text>
+      </g>
+    </svg>
   </div>`,
-  3: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(19,78,74,.15),rgba(13,148,136,.05));overflow:hidden;">
-    <div style="position:absolute;inset:0;padding:12px;">
-      <div style="width:55%;height:75%;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0;position:relative;overflow:hidden;">
-        ${Array.from({length:6},(_,i)=>`<div style="height:5px;background:#e2e8f0;border-radius:2px;margin:5px 6px;width:${50+Math.random()*40}%;"></div>`).join('')}
-        <div style="position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(20,184,166,.8),transparent);animation:scanLine 2s linear infinite;top:0;"></div>
-      </div>
-    </div>
-    <div style="position:absolute;top:14px;right:12px;display:flex;flex-direction:column;gap:3px;">
-      ${['업체명','금액','판정'].map((t,i)=>`<div style="font-size:8px;padding:1px 5px;border-radius:3px;background:rgba(20,184,166,.15);color:#5eead4;animation:slideRight .4s ease-out ${i*0.3+0.5}s both;">${t} ✓</div>`).join('')}
-    </div>
-    <div style="position:absolute;bottom:8px;right:10px;font-size:9px;color:rgba(20,184,166,.6);font-weight:600;">OCR 스캔 중...</div>
+  3: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(19,78,74,.12),rgba(13,148,136,.04));padding:0;height:auto;min-height:140px;">
+    <svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;">
+      <text x="16" y="18" fill="#94a3b8" font-size="7" font-weight="600" letter-spacing=".5">증빙 자동 검증 현황  ·  금월 328건</text>
+      <!-- 세금계산서 미리보기 -->
+      <g transform="translate(16,28)">
+        <rect x="0" y="0" width="120" height="80" rx="6" fill="#f8fafc" stroke="#e2e8f0" stroke-width=".5"/>
+        <text x="60" y="12" text-anchor="middle" fill="#334155" font-size="5.5" font-weight="700">세금계산서</text>
+        <rect x="8" y="18" width="60" height="3" rx="1" fill="#cbd5e1"/>
+        <rect x="8" y="24" width="45" height="3" rx="1" fill="#e2e8f0"/>
+        <rect x="8" y="30" width="55" height="3" rx="1" fill="#e2e8f0"/>
+        <rect x="8" y="36" width="38" height="3" rx="1" fill="#e2e8f0"/>
+        <rect x="8" y="42" width="50" height="3" rx="1" fill="#e2e8f0"/>
+        <rect x="8" y="48" width="42" height="3" rx="1" fill="#e2e8f0"/>
+        <line x1="8" y1="55" x2="112" y2="55" stroke="#e2e8f0" stroke-width=".5"/>
+        <text x="8" y="62" fill="#334155" font-size="4" font-weight="600">합계  1,250,000원</text>
+        <!-- QR코드 -->
+        <rect x="85" y="17" width="22" height="22" rx="2" fill="#1e293b"/>
+        <rect x="88" y="20" width="4" height="4" fill="#f8fafc"/><rect x="94" y="20" width="4" height="4" fill="#f8fafc"/><rect x="100" y="20" width="4" height="4" fill="#f8fafc"/>
+        <rect x="88" y="26" width="4" height="4" fill="#f8fafc"/><rect x="97" y="26" width="4" height="4" fill="#f8fafc"/>
+        <rect x="88" y="32" width="4" height="4" fill="#f8fafc"/><rect x="94" y="32" width="4" height="4" fill="#f8fafc"/><rect x="100" y="32" width="4" height="4" fill="#f8fafc"/>
+        <!-- 검증 마크 -->
+        <circle cx="108" y="68" r="7" fill="rgba(20,184,166,.15)" stroke="#14b8a6" stroke-width=".7" cy="68"/>
+        <text x="108" y="70" text-anchor="middle" fill="#14b8a6" font-size="6" font-weight="700">✓</text>
+      </g>
+      <!-- 추출 데이터 -->
+      <g transform="translate(148,28)">
+        <text x="0" y="8" fill="#94a3b8" font-size="5.5" font-weight="600">OCR 추출 데이터</text>
+        <g transform="translate(0,14)">
+          <rect x="0" y="0" width="160" height="14" rx="4" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+          <text x="6" y="10" fill="#64748b" font-size="4.5">업체명</text>
+          <text x="50" y="10" fill="#e2e8f0" font-size="4.5" font-weight="600">㈜한국안전관리</text>
+          <rect x="0" y="17" width="160" height="14" rx="4" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+          <text x="6" y="27" fill="#64748b" font-size="4.5">사업자번호</text>
+          <text x="50" y="27" fill="#e2e8f0" font-size="4.5" font-weight="600">123-45-67890</text>
+          <rect x="0" y="34" width="160" height="14" rx="4" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+          <text x="6" y="44" fill="#64748b" font-size="4.5">품목</text>
+          <text x="50" y="44" fill="#e2e8f0" font-size="4.5" font-weight="600">안전모 (산업용) 50개</text>
+          <rect x="0" y="51" width="160" height="14" rx="4" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+          <text x="6" y="61" fill="#64748b" font-size="4.5">합계금액</text>
+          <text x="50" y="61" fill="#5eead4" font-size="4.5" font-weight="700">1,250,000원</text>
+        </g>
+      </g>
+      <!-- 검증 결과 -->
+      <g transform="translate(16,118)">
+        <text x="0" y="8" fill="#94a3b8" font-size="5.5" font-weight="600">AI 검증 결과</text>
+        <rect x="0" y="14" width="80" height="16" rx="5" fill="rgba(20,184,166,.1)" stroke="rgba(20,184,166,.25)" stroke-width=".5"/>
+        <text x="8" y="25" fill="#5eead4" font-size="5">✓ QR 국세청 일치</text>
+        <rect x="85" y="14" width="85" height="16" rx="5" fill="rgba(20,184,166,.1)" stroke="rgba(20,184,166,.25)" stroke-width=".5"/>
+        <text x="93" y="25" fill="#5eead4" font-size="5">✓ 안전관리비 적합</text>
+        <rect x="175" y="14" width="70" height="16" rx="5" fill="rgba(20,184,166,.1)" stroke="rgba(20,184,166,.25)" stroke-width=".5"/>
+        <text x="183" y="25" fill="#5eead4" font-size="5">✓ 위변조 없음</text>
+      </g>
+      <!-- 처리 통계 -->
+      <g transform="translate(16,150)">
+        <rect x="0" y="0" width="70" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+        <text x="35" y="9" text-anchor="middle" fill="#64748b" font-size="4.5">자동 승인</text>
+        <text x="35" y="18" text-anchor="middle" fill="#4ade80" font-size="7" font-weight="700">289건</text>
+        <rect x="78" y="0" width="70" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+        <text x="113" y="9" text-anchor="middle" fill="#64748b" font-size="4.5">수동 검토</text>
+        <text x="113" y="18" text-anchor="middle" fill="#fbbf24" font-size="7" font-weight="700">31건</text>
+        <rect x="156" y="0" width="70" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+        <text x="191" y="9" text-anchor="middle" fill="#64748b" font-size="4.5">반려</text>
+        <text x="191" y="18" text-anchor="middle" fill="#f87171" font-size="7" font-weight="700">8건</text>
+        <rect x="234" y="0" width="74" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.08)" stroke-width=".5"/>
+        <text x="271" y="9" text-anchor="middle" fill="#64748b" font-size="4.5">정확도</text>
+        <text x="271" y="18" text-anchor="middle" fill="#14b8a6" font-size="7" font-weight="700">97.6%</text>
+      </g>
+    </svg>
   </div>`,
 };
 
