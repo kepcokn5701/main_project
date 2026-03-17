@@ -372,36 +372,81 @@ let futureOpen = false;
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 카드별 미니 모션 그래픽
 const CARD_VISUALS = {
-  1: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(3,105,161,.15),rgba(2,132,199,.05));padding:12px 14px;">
-    <svg viewBox="0 0 260 120" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;">
-      <!-- 도넛 차트: 설문 응답 비율 -->
-      <g transform="translate(50,60)">
-        <circle cx="0" cy="0" r="32" stroke="rgba(34,197,94,.5)" stroke-width="10" stroke-dasharray="131 70" stroke-dashoffset="0" fill="none"/>
-        <circle cx="0" cy="0" r="32" stroke="rgba(56,189,248,.5)" stroke-width="10" stroke-dasharray="46 155" stroke-dashoffset="-131" fill="none"/>
-        <circle cx="0" cy="0" r="32" stroke="rgba(239,68,68,.45)" stroke-width="10" stroke-dasharray="24 177" stroke-dashoffset="-177" fill="none"/>
-        <text x="0" y="2" text-anchor="middle" fill="#e2e8f0" font-size="9" font-weight="700">1,247</text>
-        <text x="0" y="12" text-anchor="middle" fill="#94a3b8" font-size="5">응답</text>
+  1: `<div class="card-visual" style="background:linear-gradient(135deg,rgba(3,105,161,.12),rgba(2,132,199,.04));padding:0;height:auto;min-height:140px;">
+    <svg viewBox="0 0 320 180" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;">
+      <!-- 설문 응답 카드 헤더 -->
+      <text x="16" y="18" fill="#94a3b8" font-size="7" font-weight="600" letter-spacing=".5">고객 설문 응답 현황  ·  1,247명</text>
+      <!-- 설문 문항 미리보기 -->
+      <g transform="translate(16,28)">
+        <rect x="0" y="0" width="130" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="7" y="9" fill="#64748b" font-size="5">Q1</text>
+        <text x="20" y="9" fill="#cbd5e1" font-size="5.5">직원 응대에 만족하셨나요?</text>
+        <rect x="7" y="13" width="80" height="4" rx="1.5" fill="rgba(30,41,59,.8)"/>
+        <rect x="7" y="13" width="62" height="4" rx="1.5" fill="rgba(34,197,94,.5)"/>
+        <text x="92" y="16" fill="#4ade80" font-size="4.5" font-weight="600">78%</text>
       </g>
-      <!-- 범례 -->
-      <g transform="translate(100,18)">
-        <rect x="0" y="0" width="6" height="6" rx="1" fill="rgba(34,197,94,.7)"/><text x="10" y="6" fill="#94a3b8" font-size="6">만족 65%</text>
-        <rect x="0" y="14" width="6" height="6" rx="1" fill="rgba(56,189,248,.7)"/><text x="10" y="20" fill="#94a3b8" font-size="6">보통 23%</text>
-        <rect x="0" y="28" width="6" height="6" rx="1" fill="rgba(239,68,68,.65)"/><text x="10" y="34" fill="#94a3b8" font-size="6">불만 12%</text>
+      <g transform="translate(152,28)">
+        <rect x="0" y="0" width="152" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="7" y="9" fill="#64748b" font-size="5">Q2</text>
+        <text x="20" y="9" fill="#cbd5e1" font-size="5.5">문의 처리 속도는 어떠셨나요?</text>
+        <rect x="7" y="13" width="100" height="4" rx="1.5" fill="rgba(30,41,59,.8)"/>
+        <rect x="7" y="13" width="64" height="4" rx="1.5" fill="rgba(56,189,248,.5)"/>
+        <text x="112" y="16" fill="#38bdf8" font-size="4.5" font-weight="600">64%</text>
       </g>
-      <!-- 가로 막대: 항목별 응답 -->
-      <g transform="translate(100,62)">
-        <text x="0" y="0" fill="#64748b" font-size="5">응대 친절도</text>
-        <rect x="50" y="-5" width="90" height="6" rx="2" fill="rgba(30,41,59,.6)"/>
-        <rect x="50" y="-5" width="76" height="6" rx="2" fill="rgba(34,197,94,.45)"/>
-        <text x="0" y="14" fill="#64748b" font-size="5">처리 신속성</text>
-        <rect x="50" y="9" width="90" height="6" rx="2" fill="rgba(30,41,59,.6)"/>
-        <rect x="50" y="9" width="58" height="6" rx="2" fill="rgba(56,189,248,.45)"/>
-        <text x="0" y="28" fill="#64748b" font-size="5">요금 안내</text>
-        <rect x="50" y="23" width="90" height="6" rx="2" fill="rgba(30,41,59,.6)"/>
-        <rect x="50" y="23" width="45" height="6" rx="2" fill="rgba(251,191,36,.45)"/>
-        <text x="0" y="42" fill="#64748b" font-size="5">재이용 의향</text>
-        <rect x="50" y="37" width="90" height="6" rx="2" fill="rgba(30,41,59,.6)"/>
-        <rect x="50" y="37" width="68" height="6" rx="2" fill="rgba(34,197,94,.45)"/>
+      <g transform="translate(16,54)">
+        <rect x="0" y="0" width="130" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="7" y="9" fill="#64748b" font-size="5">Q3</text>
+        <text x="20" y="9" fill="#cbd5e1" font-size="5.5">요금 안내가 명확했나요?</text>
+        <rect x="7" y="13" width="80" height="4" rx="1.5" fill="rgba(30,41,59,.8)"/>
+        <rect x="7" y="13" width="44" height="4" rx="1.5" fill="rgba(251,191,36,.5)"/>
+        <text x="92" y="16" fill="#fbbf24" font-size="4.5" font-weight="600">55%</text>
+      </g>
+      <g transform="translate(152,54)">
+        <rect x="0" y="0" width="152" height="22" rx="5" fill="rgba(15,23,42,.6)" stroke="rgba(148,163,184,.1)" stroke-width=".5"/>
+        <text x="7" y="9" fill="#64748b" font-size="5">Q4</text>
+        <text x="20" y="9" fill="#cbd5e1" font-size="5.5">서비스를 다시 이용하시겠습니까?</text>
+        <rect x="7" y="13" width="100" height="4" rx="1.5" fill="rgba(30,41,59,.8)"/>
+        <rect x="7" y="13" width="72" height="4" rx="1.5" fill="rgba(34,197,94,.5)"/>
+        <text x="112" y="16" fill="#4ade80" font-size="4.5" font-weight="600">72%</text>
+      </g>
+      <!-- 도넛 차트 -->
+      <g transform="translate(52,130)">
+        <circle cx="0" cy="0" r="30" stroke="rgba(34,197,94,.5)" stroke-width="10" stroke-dasharray="122 67" stroke-dashoffset="0" fill="none"/>
+        <circle cx="0" cy="0" r="30" stroke="rgba(56,189,248,.5)" stroke-width="10" stroke-dasharray="43 145" stroke-dashoffset="-122" fill="none"/>
+        <circle cx="0" cy="0" r="30" stroke="rgba(239,68,68,.45)" stroke-width="10" stroke-dasharray="23 165" stroke-dashoffset="-165" fill="none"/>
+        <text x="0" y="-1" text-anchor="middle" fill="#e2e8f0" font-size="8" font-weight="700">1,247</text>
+        <text x="0" y="9" text-anchor="middle" fill="#94a3b8" font-size="5">총 응답</text>
+      </g>
+      <!-- 범례 + 수치 -->
+      <g transform="translate(100,108)">
+        <rect x="0" y="0" width="8" height="8" rx="2" fill="rgba(34,197,94,.6)"/>
+        <text x="12" y="7" fill="#cbd5e1" font-size="6.5" font-weight="600">만족</text>
+        <text x="36" y="7" fill="#4ade80" font-size="7" font-weight="700">65%</text>
+        <text x="60" y="7" fill="#64748b" font-size="5.5">811명</text>
+
+        <rect x="0" y="16" width="8" height="8" rx="2" fill="rgba(56,189,248,.6)"/>
+        <text x="12" y="23" fill="#cbd5e1" font-size="6.5" font-weight="600">보통</text>
+        <text x="36" y="23" fill="#38bdf8" font-size="7" font-weight="700">23%</text>
+        <text x="60" y="23" fill="#64748b" font-size="5.5">287명</text>
+
+        <rect x="0" y="32" width="8" height="8" rx="2" fill="rgba(239,68,68,.55)"/>
+        <text x="12" y="39" fill="#cbd5e1" font-size="6.5" font-weight="600">불만</text>
+        <text x="36" y="39" fill="#ef4444" font-size="7" font-weight="700">12%</text>
+        <text x="60" y="39" fill="#64748b" font-size="5.5">149명</text>
+      </g>
+      <!-- 주요 키워드 -->
+      <g transform="translate(180,108)">
+        <text x="0" y="7" fill="#94a3b8" font-size="5.5" font-weight="600">주요 키워드</text>
+        <rect x="0" y="12" width="36" height="11" rx="4" fill="rgba(34,197,94,.12)" stroke="rgba(34,197,94,.25)" stroke-width=".5"/>
+        <text x="18" y="20" text-anchor="middle" fill="#4ade80" font-size="5">친절한 응대</text>
+        <rect x="40" y="12" width="30" height="11" rx="4" fill="rgba(56,189,248,.12)" stroke="rgba(56,189,248,.25)" stroke-width=".5"/>
+        <text x="55" y="20" text-anchor="middle" fill="#38bdf8" font-size="5">신속 해결</text>
+        <rect x="74" y="12" width="28" height="11" rx="4" fill="rgba(251,191,36,.12)" stroke="rgba(251,191,36,.25)" stroke-width=".5"/>
+        <text x="88" y="20" text-anchor="middle" fill="#fbbf24" font-size="5">요금 문의</text>
+        <rect x="0" y="27" width="28" height="11" rx="4" fill="rgba(239,68,68,.12)" stroke="rgba(239,68,68,.25)" stroke-width=".5"/>
+        <text x="14" y="35" text-anchor="middle" fill="#f87171" font-size="5">처리 지연</text>
+        <rect x="32" y="27" width="32" height="11" rx="4" fill="rgba(34,197,94,.12)" stroke="rgba(34,197,94,.25)" stroke-width=".5"/>
+        <text x="48" y="35" text-anchor="middle" fill="#4ade80" font-size="5">만족도 높음</text>
       </g>
     </svg>
   </div>`,
